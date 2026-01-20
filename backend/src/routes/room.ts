@@ -22,7 +22,7 @@ router.get("/property/:propertyId", async (req: Request, res: Response) => {
     });
     
     // Transform to match frontend expectations
-    const transformedRooms = rooms.map(room => ({
+    const transformedRooms = rooms.map((room: any) => ({
       id: room.id,
       roomNumber: room.roomNumber,
       propertyId: room.propertyId,

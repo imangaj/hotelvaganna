@@ -19,7 +19,7 @@ router.get("/", async (req: Request, res: Response) => {
     });
     
     // Transform to match frontend expectations
-    const transformedBookings = bookings.map(booking => ({
+    const transformedBookings = bookings.map((booking: any) => ({
       id: booking.id,
       propertyId: booking.propertyId,
       roomId: booking.roomId,

@@ -26,8 +26,8 @@ router.get("/", async (req: Request, res: Response) => {
       select: { id: true, roomTypeId: true }
     });
 
-    const roomCounts = roomTypes.reduce((acc, type) => {
-      acc[type.id] = rooms.filter(r => r.roomTypeId === type.id).length;
+    const roomCounts = roomTypes.reduce((acc: Record<number, number>, type: any) => {
+      acc[type.id] = rooms.filter((r: any) => r.roomTypeId === type.id).length;
       return acc;
     }, {} as Record<number, number>);
 
@@ -65,7 +65,7 @@ router.get("/", async (req: Request, res: Response) => {
       const dateStr = format(current, 'yyyy-MM-dd');
       
       for (const type of roomTypes) {
-        const rate = rates.find(r => 
+        const rate = rates.find((r: any) => 
           r.roomTypeId === type.id && 
           format(r.date, 'yyyy-MM-dd') === dateStr
         );
@@ -75,7 +75,7 @@ router.get("/", async (req: Request, res: Response) => {
         const isClosed = rate?.isClosed ?? false;
         const enableBreakfast = rate?.enableBreakfast ?? true;
 
-        const booked = bookings.filter(b => {
+        const booked = bookings.filter((b: any) => {
             const bCheckIn = startOfDay(new Date(b.checkInDate));
             const bCheckOut = startOfDay(new Date(b.checkOutDate));
             return b.room.roomTypeId === type.id &&

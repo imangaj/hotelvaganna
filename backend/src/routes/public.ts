@@ -28,7 +28,7 @@ router.get("/search", async (req: Request, res: Response) => {
     });
 
     const roomTypesMap = new Map();
-    rooms.forEach(room => {
+    rooms.forEach((room: any) => {
         if (!roomTypesMap.has(room.roomTypeId)) {
             roomTypesMap.set(room.roomTypeId, {
                 ...room.roomType,
@@ -59,7 +59,7 @@ router.get("/search", async (req: Request, res: Response) => {
         });
 
         // Check if ANY day is closed
-        const isClosed = rates.some(r => r.isClosed);
+        const isClosed = rates.some((r: any) => r.isClosed);
         if (isClosed) continue; 
 
         // Calculate Price and check Inventory per day
@@ -70,7 +70,7 @@ router.get("/search", async (req: Request, res: Response) => {
         let curr = new Date(start);
         while (curr < end) {
             const dateStr = format(curr, 'yyyy-MM-dd');
-            const rate = rates.find(r => format(r.date, 'yyyy-MM-dd') === dateStr);
+            const rate = rates.find((r: any) => format(r.date, 'yyyy-MM-dd') === dateStr);
 
             // Price
             const price = rate ? rate.price : typeData.basePrice;
@@ -86,7 +86,7 @@ router.get("/search", async (req: Request, res: Response) => {
             const bookingsCount = await prisma.booking.count({
                 where: {
                     propertyId: propId,
-                    roomId: { in: rooms.filter(r => r.roomTypeId === typeId).map(r => r.id) },
+                    roomId: { in: rooms.filter((r: any) => r.roomTypeId === typeId).map((r: any) => r.id) },
                     bookingStatus: { in: ["CONFIRMED", "CHECKED_IN", "PENDING"] }, // Pending blocks too? Usually yes.
                     checkInDate: { lt: nextDay },
                     checkOutDate: { gt: dayStart }
@@ -110,10 +110,10 @@ router.get("/search", async (req: Request, res: Response) => {
         }
 
         if (valid) {
-            const allDaysBreakfast = rates.every(r => r.enableBreakfast !== false);
+            const allDaysBreakfast = rates.every((r: any) => r.enableBreakfast !== false);
 
             // Find valid Assignable Room IDs for the whole duration
-            const physicalRooms = rooms.filter(r => r.roomTypeId === typeId);
+            const physicalRooms = rooms.filter((r: any) => r.roomTypeId === typeId);
             const assignableRoomIds: number[] = [];
 
             for (const room of physicalRooms) {
