@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # SQLite setup - No external database service required
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pms-backend
+    ports:
+      - "5000:5000"
+    environment:
+      # DATABASE_URL: "file:./dev.db" # Default in usage
+      JWT_SECRET: "your_jwt_secret_key_here_change_in_production"
+      JWT_EXPIRE: "7d"
+      PORT: 5000
+      NODE_ENV: development
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma # Persist SQLite DB
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: pms-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: "http://localhost:5000/api"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: pms-network

@@ -1,0 +1,23 @@
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'STAFF');
+
+-- CreateEnum
+CREATE TYPE "RoomStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'BLOCKED');
+
+-- CreateEnum
+CREATE TYPE "BookingStatus" AS ENUM ('CONFIRMED', 'PENDING', 'CANCELLED', 'NO_SHOW');
+
+-- CreateEnum
+CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PARTIAL', 'PAID', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "BookingSource" AS ENUM ('DIRECT_WEBSITE', 'BOOKING_COM', 'AIRBNB', 'PHONE', 'WALK_IN');
+
+-- CreateEnum
+CREATE TYPE "ChannelType" AS ENUM ('BOOKING_COM', 'AIRBNB', 'VRBO', 'EXPEDIA', 'OWN_WEBSITE');
+
+-- CreateEnum
+CREATE TYPE "SyncType" AS ENUM ('AVAILABILITY', 'PRICING', 'BOOKING');
+
+-- CreateEnum
+CREATE TYPE "SyncStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'RETRY');
