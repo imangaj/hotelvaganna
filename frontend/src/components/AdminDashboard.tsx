@@ -30,6 +30,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<ViewType>("dashboard");
   const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   const getAllowedViews = (role: string): ViewType[] => {
     switch (role) {
@@ -62,6 +63,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const handleViewChange = (view: ViewType) => {
     console.log("Changing view to:", view);
     setCurrentView(view);
+    setIsSidebarOpen(false);
   };
 
   if (userRole === "PENDING") {
@@ -118,7 +120,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   return (
     <div className="dashboard-container">
-      <aside className="sidebar">
+      <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
         <h1 className="sidebar-title">🏨 PMS <span className="text-xs opacity-50 block">{userRole}</span></h1>
         <div className="sidebar-language">
           <LanguageSelector />
@@ -229,18 +231,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </div>
       </aside>
 
+      <div
+        className={`sidebar-overlay ${isSidebarOpen ? "show" : ""}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
       <main className="main-content">
         <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 50 }}>
-          <h1 className="page-title">
-            {currentView === "dashboard" && t('admin_dashboard')}
-            {currentView === "housekeeping" && t('admin_housekeeping')}
-            {currentView === "bookings" && t('admin_bookings')}
-            {currentView === "guests" && t('admin_guests')}
-            {currentView === "analytics" && t('admin_analytics')}
-            {currentView === "settings" && t('admin_settings')}
-            {currentView === "pricing" && t('admin_pricing')}
-            {currentView === "calendar" && t('admin_calendar')}
-          </h1>
+          <div className="header-left">
+            <button
+              className="hamburger-btn"
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              aria-label="Toggle menu"
+            >
+              ☰
+            </button>
+            <h1 className="page-title">
+              {currentView === "dashboard" && t('admin_dashboard')}
+              {currentView === "housekeeping" && t('admin_housekeeping')}
+              {currentView === "bookings" && t('admin_bookings')}
+              {currentView === "guests" && t('admin_guests')}
+              {currentView === "analytics" && t('admin_analytics')}
+              {currentView === "settings" && t('admin_settings')}
+              {currentView === "pricing" && t('admin_pricing')}
+              {currentView === "calendar" && t('admin_calendar')}
+            </h1>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <LanguageSelector />
             <button className="logout-btn" onClick={onLogout}>
