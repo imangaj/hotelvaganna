@@ -164,7 +164,7 @@ router.put("/:id/status", async (req: Request, res: Response) => {
       data: { status },
     });
 
-    if (status === "DIRTY") {
+    if (status === "DIRTY" || status === "LOCKED") {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
 

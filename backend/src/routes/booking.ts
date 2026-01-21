@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db";
+import { sendBookingEmails } from "../utils/mailer";
 
 const router = Router();
 
@@ -147,6 +148,37 @@ router.post("/", async (req: Request, res: Response) => {
       },
     });
 
+    try {
+      const fullBooking = await prisma.booking.findUnique({
+        where: { id: booking.id },
+        include: {
+          guest: true,
+          room: { include: { roomType: true } },
+          property: true,
+        }
+      });
+
+      const hotelProfile = await prisma.hotelProfile.findFirst();
+      const hotelEmail = hotelProfile?.email || process.env.HOTEL_EMAIL || "hotel.valganna@libero.it";
+
+      if (fullBooking && fullBooking.guest?.email) {
+        await sendBookingEmails({
+          bookingNumber: fullBooking.bookingNumber,
+          checkInDate: fullBooking.checkInDate,
+          checkOutDate: fullBooking.checkOutDate,
+          totalPrice: fullBooking.totalPrice,
+          guestEmail: fullBooking.guest.email,
+          guestName: `${fullBooking.guest.firstName} ${fullBooking.guest.lastName}`.trim(),
+          roomNumber: fullBooking.room?.roomNumber,
+          roomType: fullBooking.room?.roomType?.name,
+          hotelEmail,
+          source: fullBooking.source
+        });
+      }
+    } catch (emailError) {
+      console.error("Email sending failed", emailError);
+    }
+
     res.status(201).json(booking);
   } catch (error) {
     res.status(500).json({ message: "Failed to create booking", error });
@@ -185,7 +217,7 @@ router.put("/:id/status", async (req: Request, res: Response) => {
     if (bookingStatus === "CHECKED_OUT") {
       await prisma.room.update({
         where: { id: booking.roomId },
-        data: { status: "DIRTY" }, // Changed from CLEANING to DIRTY to match frontend expectations
+        data: { status: "LOCKED" }, // Locked until key is dropped at reception
       });
 
       const room = await prisma.room.findUnique({

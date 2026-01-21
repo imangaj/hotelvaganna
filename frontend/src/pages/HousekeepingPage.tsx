@@ -276,6 +276,7 @@ const HousekeepingPage: React.FC = () => {
 
     const filteredTasks = tasks.filter(t => {
         if (isCleaner && currentUser?.id && t.assignedToUserId !== currentUser.id) return false;
+        if (isCleaner && t.room?.status === "LOCKED") return false;
         if (!isCleaner && filterAssignee !== "ALL" && t.assignedToUserId !== filterAssignee) return false;
         if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
         if (isCleaner && selectedDate) {
@@ -288,6 +289,9 @@ const HousekeepingPage: React.FC = () => {
     const cleanedCount = filteredTasks.filter(t => !t.title.startsWith("N - Room") && ["COMPLETED", "INSPECTED"].includes(t.status)).length;
 
     const getAssignmentType = (room: Room): { code: "P" | "F"; label: string; classes: string } | null => {
+        if (room.status === "LOCKED") {
+            return { code: "P", label: t("hk_key_pending"), classes: "bg-orange-100 text-orange-800 border-orange-200" };
+        }
         const taskForRoom = tasks.find(t =>
             t.roomId === room.id &&
             (t.title.startsWith("P - Room") || t.title.startsWith("F - Room")) &&
@@ -340,6 +344,22 @@ const HousekeepingPage: React.FC = () => {
             return { code: "N", classes: "bg-gray-200 text-gray-800 border-gray-300" };
         }
         return null;
+    };
+
+    const lockedAssignedTasks = tasks.filter(t =>
+        t.room?.status === "LOCKED" &&
+        t.assignedToUserId &&
+        !["COMPLETED", "INSPECTED"].includes(t.status)
+    );
+
+    const handleKeyDropped = async (roomId: number) => {
+        try {
+            await roomAPI.updateStatus(roomId, "DIRTY");
+            setTasks(prev => prev.map(t => t.roomId === roomId ? { ...t, room: { ...t.room!, status: "DIRTY" } } : t));
+            setAssignmentRooms(prev => prev.map(r => r.id === roomId ? { ...r, status: "DIRTY" } : r));
+        } catch (error) {
+            console.error("Failed to mark key dropped", error);
+        }
     };
 
     const getPriorityColor = (p: string) => {
@@ -482,6 +502,32 @@ const HousekeepingPage: React.FC = () => {
                                 {t("hk_no_rooms_today")}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Awaiting Key Drop */}
+            {canAssign && lockedAssignedTasks.length > 0 && (
+                <div className="bg-white p-4 rounded-lg shadow-sm border border-orange-100 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold text-gray-800">{t("hk_awaiting_key_drop")}</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {lockedAssignedTasks.map(task => (
+                            <div key={task.id} className="border rounded-lg p-4 bg-orange-50">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="font-bold text-gray-800">Room {task.room?.roomNumber}</div>
+                                    <span className="text-xs px-2 py-1 rounded border bg-orange-100 text-orange-800 border-orange-200">P</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mb-3">{task.assignee?.name || t("hk_unassigned")}</div>
+                                <button
+                                    className="w-full bg-orange-600 text-white px-3 py-2 rounded text-sm font-semibold hover:bg-orange-700"
+                                    onClick={() => task.roomId && handleKeyDropped(task.roomId)}
+                                >
+                                    {t("hk_key_dropped")}
+                                </button>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

@@ -16,6 +16,10 @@ export const translations = {
     hero_check_avail: "Check Availability",
     hero_searching: "Searching...",
     hero_checkin_placeholder: "Select Check-in and Check-out",
+    rules_title: "Hotel Rules",
+    rules_accept: "I accept the hotel rules.",
+    rules_cancel: "Cancel",
+    rules_continue: "Continue",
 
     // Public Room Card
     room_guests: "Guests",
@@ -161,6 +165,9 @@ export const translations = {
     hk_rooms_cleaned: "Rooms cleaned",
     hk_no_cleaning: "No cleaning",
     hk_no_cleaning_needed: "No cleaning needed",
+    hk_key_pending: "Key pending at reception",
+    hk_key_dropped: "Key dropped",
+    hk_awaiting_key_drop: "Awaiting Key Drop",
 
     // Bookings
     bk_title: "Bookings Management",
@@ -287,6 +294,10 @@ export const translations = {
     hero_check_avail: "Verifica Disponibilità",
     hero_searching: "Ricerca in corso...",
     hero_checkin_placeholder: "Seleziona Check-in e Check-out",
+    rules_title: "Regole dell'hotel",
+    rules_accept: "Accetto le regole dell'hotel.",
+    rules_cancel: "Annulla",
+    rules_continue: "Continua",
 
     // Public Room Card
     room_guests: "Ospiti",
@@ -432,6 +443,9 @@ export const translations = {
     hk_rooms_cleaned: "Camere pulite",
     hk_no_cleaning: "Nessuna pulizia",
     hk_no_cleaning_needed: "Non serve pulizia",
+    hk_key_pending: "Chiave in attesa in reception",
+    hk_key_dropped: "Chiave consegnata",
+    hk_awaiting_key_drop: "In attesa della chiave",
 
     // Bookings
     bk_title: "Gestione Prenotazioni",
@@ -558,6 +572,10 @@ export const translations = {
     hero_check_avail: "查询空房",
     hero_searching: "搜索中...",
     hero_checkin_placeholder: "选择入住和退房日期",
+    rules_title: "酒店规则",
+    rules_accept: "我接受酒店规则。",
+    rules_cancel: "取消",
+    rules_continue: "继续",
 
     // Public Room Card
     room_guests: "客人",
@@ -703,6 +721,9 @@ export const translations = {
     hk_rooms_cleaned: "已清洁房间",
     hk_no_cleaning: "无需清洁",
     hk_no_cleaning_needed: "无需清洁",
+    hk_key_pending: "钥匙待前台接收",
+    hk_key_dropped: "钥匙已交回",
+    hk_awaiting_key_drop: "等待钥匙交回",
 
     // Bookings
     bk_title: "预订管理",

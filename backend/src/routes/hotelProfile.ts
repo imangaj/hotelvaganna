@@ -23,7 +23,10 @@ const defaultProfile = {
   footerCopyright: "© 2026 Ponale Apartments & Suites",
   facebookUrl: "",
   instagramUrl: "",
-  twitterUrl: ""
+  twitterUrl: "",
+  contentJson: {
+    rules: { show: true, title: "Hotel Rules", content: "" }
+  }
 };
 
 router.get("/", async (_req: Request, res: Response) => {

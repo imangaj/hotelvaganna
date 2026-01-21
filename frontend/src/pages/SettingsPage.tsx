@@ -45,6 +45,7 @@ interface HotelProfileData {
     about?: { title: string; content: string; show: boolean };
     features?: { show: boolean; showAmenities?: boolean };
     map?: { show: boolean; embedUrl: string };
+        rules?: { show: boolean; title: string; content: string };
     services?: { icon: string; title: string; text: string }[];
   }
 }
@@ -154,6 +155,7 @@ const SettingsPage: React.FC = () => {
             about: { show: true, title: "", content: "" },
             features: { show: true, showAmenities: true },
             map: { show: true, embedUrl: "" },
+            rules: { show: true, title: "Hotel Rules", content: "" },
             services: []
         }
     });
@@ -180,6 +182,7 @@ const SettingsPage: React.FC = () => {
                     about: { show: true, title: "", content: "", ...res.data.contentJson?.about },
                     features: { show: true, showAmenities: true, ...res.data.contentJson?.features },
                     map: { show: true, embedUrl: "", ...res.data.contentJson?.map },
+                    rules: { show: true, title: "Hotel Rules", content: "", ...res.data.contentJson?.rules },
                     services: res.data.contentJson?.services || []
                 };
                 setHotelProfile({ ...res.data, contentJson: mergedContent });
@@ -410,6 +413,64 @@ const SettingsPage: React.FC = () => {
                         <span>✨</span> Amenities List
                     </h3>
                     <textarea rows={3} className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500" placeholder="e.g. Free Wi-Fi, Pool, Spa, Ocean View" value={hotelProfile.amenities || ""} onChange={e => setHotelProfile({...hotelProfile, amenities: e.target.value})} />
+                 </div>
+
+                 {/* Rules Popup */}
+                 <div className="border border-gray-200 rounded-lg p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <span>📜</span> Booking Rules Popup
+                        </h3>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <span className="text-sm font-medium text-gray-600">Visible</span>
+                            <input
+                                type="checkbox"
+                                className="form-checkbox h-5 w-5 text-blue-600"
+                                checked={hotelProfile.contentJson?.rules?.show}
+                                onChange={e => setHotelProfile({
+                                    ...hotelProfile,
+                                    contentJson: {
+                                        ...hotelProfile.contentJson!,
+                                        rules: { ...hotelProfile.contentJson!.rules!, show: e.target.checked }
+                                    }
+                                })}
+                            />
+                        </label>
+                    </div>
+                    {hotelProfile.contentJson?.rules?.show && (
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Popup Title</label>
+                                <input
+                                    className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
+                                    value={hotelProfile.contentJson.rules?.title}
+                                    onChange={e => setHotelProfile({
+                                        ...hotelProfile,
+                                        contentJson: {
+                                            ...hotelProfile.contentJson!,
+                                            rules: { ...hotelProfile.contentJson!.rules!, title: e.target.value }
+                                        }
+                                    })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Rules Text</label>
+                                <textarea
+                                    rows={6}
+                                    className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
+                                    placeholder="Write the hotel rules shown before payment..."
+                                    value={hotelProfile.contentJson.rules?.content}
+                                    onChange={e => setHotelProfile({
+                                        ...hotelProfile,
+                                        contentJson: {
+                                            ...hotelProfile.contentJson!,
+                                            rules: { ...hotelProfile.contentJson!.rules!, content: e.target.value }
+                                        }
+                                    })}
+                                />
+                            </div>
+                        </div>
+                    )}
                  </div>
 
                  <div className="sticky bottom-0 bg-white py-4 border-t flex justify-end">

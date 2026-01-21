@@ -31,6 +31,7 @@ interface HotelProfileData {
     about?: { title: string; content: string; show: boolean };
     features?: { show: boolean; showAmenities?: boolean };
     map?: { show: boolean; embedUrl: string };
+        rules?: { show: boolean; title: string; content: string };
     services?: { icon: string; title: string; text: string }[];
   }
 }
@@ -65,6 +66,8 @@ const PublicSite: React.FC = () => {
   // Booking Modal State
   const [selectedRoomType, setSelectedRoomType] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
+    const [showRulesModal, setShowRulesModal] = useState(false);
+    const [rulesAccepted, setRulesAccepted] = useState(false);
   const [guestDetails, setGuestDetails] = useState({ firstName: "", lastName: "", email: "", phone: "" });
   const [bookingStatus, setBookingStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [bookingStep, setBookingStep] = useState(1);
@@ -137,11 +140,25 @@ const PublicSite: React.FC = () => {
 
   const handleBookClick = (roomType: any) => {
       setSelectedRoomType(roomType);
-      setShowModal(true);
       setBookingStatus("idle");
       setBookingStep(1);
       setWantsBreakfast(false);
       setWantsParking(false);
+      setRulesAccepted(false);
+
+      const rulesText = profile?.contentJson?.rules?.content || profile?.policies || "";
+      const shouldShowRules = profile?.contentJson?.rules?.show !== false && rulesText.trim().length > 0;
+      if (shouldShowRules) {
+          setShowRulesModal(true);
+          return;
+      }
+      setShowModal(true);
+  };
+
+  const handleAcceptRules = () => {
+      setShowRulesModal(false);
+      setRulesAccepted(true);
+      setShowModal(true);
   };
 
   const goToPayment = () => {
@@ -333,6 +350,41 @@ const PublicSite: React.FC = () => {
 
   return (
     <div className="font-sans text-gray-800 min-h-screen flex flex-col">
+      {showRulesModal && (
+          <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-3">
+                      {profile?.contentJson?.rules?.title || t("rules_title")}
+                  </h3>
+                  <div className="text-sm text-gray-600 whitespace-pre-line max-h-64 overflow-auto border rounded p-3 bg-gray-50">
+                      {profile?.contentJson?.rules?.content || profile?.policies || ""}
+                  </div>
+                  <label className="flex items-center gap-2 mt-4 text-sm text-gray-700">
+                      <input
+                          type="checkbox"
+                          checked={rulesAccepted}
+                          onChange={(e) => setRulesAccepted(e.target.checked)}
+                      />
+                      {t("rules_accept")}
+                  </label>
+                  <div className="mt-5 flex justify-end gap-2">
+                      <button
+                          className="px-4 py-2 rounded border text-gray-600"
+                          onClick={() => setShowRulesModal(false)}
+                      >
+                          {t("rules_cancel")}
+                      </button>
+                      <button
+                          className="px-4 py-2 rounded bg-primary-600 text-white disabled:opacity-50"
+                          disabled={!rulesAccepted}
+                          onClick={handleAcceptRules}
+                      >
+                          {t("rules_continue")}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
       {/* HEADER */}
       <header className="fixed w-full z-50 transition-all duration-300 bg-white/90 backdrop-blur-md shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
