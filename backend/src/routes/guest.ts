@@ -12,23 +12,6 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "firstName, lastName, and email are required" });
     }
 
-    const existing = await prisma.guest.findFirst({
-      where: { email },
-    });
-
-    if (existing) {
-      const updated = await prisma.guest.update({
-        where: { id: existing.id },
-        data: {
-          firstName,
-          lastName,
-          phone: phone ?? existing.phone,
-          country: country ?? existing.country,
-        },
-      });
-      return res.status(200).json(updated);
-    }
-
     const guest = await prisma.guest.create({
       data: {
         firstName,
