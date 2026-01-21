@@ -276,7 +276,6 @@ const HousekeepingPage: React.FC = () => {
 
     const filteredTasks = tasks.filter(t => {
         if (isCleaner && currentUser?.id && t.assignedToUserId !== currentUser.id) return false;
-        if (isCleaner && t.room?.status === "LOCKED") return false;
         if (!isCleaner && filterAssignee !== "ALL" && t.assignedToUserId !== filterAssignee) return false;
         if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
         if (isCleaner && selectedDate) {
@@ -387,6 +386,11 @@ const HousekeepingPage: React.FC = () => {
             case "INSPECTED": return "bg-blue-100 border-blue-300";
             default: return "bg-gray-100 border-gray-300";
         }
+    };
+
+    const getRoomStatusHint = (task: Task) => {
+        if (task.room?.status === "LOCKED") return t("hk_key_pending");
+        return "";
     };
 
     return (
@@ -586,6 +590,11 @@ const HousekeepingPage: React.FC = () => {
                                     <div className="text-5xl font-black text-gray-800">
                                         {getTaskAssignmentBadge(task)?.code || ""}
                                     </div>
+                                    {getRoomStatusHint(task) && (
+                                        <div className="text-xs font-semibold px-2 py-1 rounded bg-orange-100 text-orange-800 border border-orange-200">
+                                            {getRoomStatusHint(task)}
+                                        </div>
+                                    )}
                                     <div className="text-sm font-semibold text-gray-700">
                                         {task.assignee?.name || t("hk_unassigned")}
                                     </div>
