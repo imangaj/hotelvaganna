@@ -17,7 +17,16 @@ router.post("/", async (req: Request, res: Response) => {
     });
 
     if (existing) {
-      return res.status(200).json(existing);
+      const updated = await prisma.guest.update({
+        where: { id: existing.id },
+        data: {
+          firstName,
+          lastName,
+          phone: phone ?? existing.phone,
+          country: country ?? existing.country,
+        },
+      });
+      return res.status(200).json(updated);
     }
 
     const guest = await prisma.guest.create({

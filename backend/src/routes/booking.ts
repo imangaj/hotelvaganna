@@ -162,17 +162,21 @@ router.post("/", async (req: Request, res: Response) => {
       const hotelEmail = hotelProfile?.email || process.env.HOTEL_EMAIL || "hotel.valganna@libero.it";
 
       if (fullBooking && fullBooking.guest?.email) {
-        await sendBookingEmails({
-          bookingNumber: fullBooking.bookingNumber,
-          checkInDate: fullBooking.checkInDate,
-          checkOutDate: fullBooking.checkOutDate,
-          totalPrice: fullBooking.totalPrice,
-          guestEmail: fullBooking.guest.email,
-          guestName: `${fullBooking.guest.firstName} ${fullBooking.guest.lastName}`.trim(),
-          roomNumber: fullBooking.room?.roomNumber,
-          roomType: fullBooking.room?.roomType?.name,
-          hotelEmail,
-          source: fullBooking.source
+        setImmediate(() => {
+          sendBookingEmails({
+            bookingNumber: fullBooking.bookingNumber,
+            checkInDate: fullBooking.checkInDate,
+            checkOutDate: fullBooking.checkOutDate,
+            totalPrice: fullBooking.totalPrice,
+            guestEmail: fullBooking.guest.email,
+            guestName: `${fullBooking.guest.firstName} ${fullBooking.guest.lastName}`.trim(),
+            roomNumber: fullBooking.room?.roomNumber,
+            roomType: fullBooking.room?.roomType?.name,
+            hotelEmail,
+            source: fullBooking.source
+          }).catch((err) => {
+            console.error("Email sending failed", err);
+          });
         });
       }
     } catch (emailError) {
