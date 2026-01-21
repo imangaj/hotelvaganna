@@ -257,7 +257,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               {currentView === "calendar" && t('admin_calendar')}
             </h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div className="header-right">
             <LanguageSelector />
             <button className="logout-btn" onClick={onLogout}>
                 {t('admin_logout')}
