@@ -16,6 +16,12 @@ services:
       JWT_EXPIRE: "7d"
       PORT: 5000
       NODE_ENV: development
+      HOTEL_EMAIL: "hotel.valganna@libero.it"
+      SMTP_HOST: "smtp.libero.it"
+      SMTP_PORT: 465
+      SMTP_USER: "hotel.valganna@libero.it"
+      SMTP_PASS: "CHANGE_ME"
+      SMTP_FROM: "hotel.valganna@libero.it"
     volumes:
       - ./backend/src:/app/src
       - ./backend/prisma:/app/prisma # Persist SQLite DB
