@@ -3,6 +3,7 @@
   min-height: 100vh;
   background: #f5f7fa;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow-x: hidden;
 }
 
 /* Sidebar Styles */
@@ -218,7 +219,7 @@
   }
 
   .main-content {
-    margin-left: 0;
+    margin-left: 0 !important;
     padding: 16px;
   }
 
@@ -240,6 +241,12 @@
 
   .header-right {
     display: none !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0 !important;
   }
 }
 
