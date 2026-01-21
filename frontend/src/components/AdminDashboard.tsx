@@ -258,7 +258,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             </h1>
           </div>
           <div className="header-right">
-            <LanguageSelector />
             <button className="logout-btn" onClick={onLogout}>
                 {t('admin_logout')}
             </button>
