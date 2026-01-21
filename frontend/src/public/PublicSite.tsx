@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { propertyAPI, roomAPI, guestAPI, hotelProfileAPI, bookingAPI, publicAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard } from "react-icons/fa";
+import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard, FaSwimmingPool, FaSnowflake, FaDumbbell, FaSpa, FaUtensils, FaShuttleVan, FaTv, FaConciergeBell, FaBaby, FaDog, FaWheelchair, FaKey } from "react-icons/fa";
 import { MdSingleBed, MdKingBed, MdBed } from "react-icons/md";
 import LanguageSelector from "../components/LanguageSelector";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -296,6 +296,27 @@ const PublicSite: React.FC = () => {
       return <MdBed size={sizeQueen} color={color} />;
   };
 
+    const getAmenityIcon = (label: string) => {
+            const text = label.toLowerCase();
+            if (text.includes("wifi") || text.includes("internet") || text.includes("wi-fi") || text.includes("wi fi")) return FaWifi;
+            if (text.includes("breakfast") || text.includes("coffee") || text.includes("colazione")) return FaCoffee;
+            if (text.includes("parking") || text.includes("park") || text.includes("garage")) return FaCar;
+            if (text.includes("pool") || text.includes("piscina")) return FaSwimmingPool;
+            if (text.includes("air") || text.includes("a/c") || text.includes("ac") || text.includes("condition") || text.includes("climat")) return FaSnowflake;
+            if (text.includes("gym") || text.includes("fitness") || text.includes("palestra")) return FaDumbbell;
+            if (text.includes("spa") || text.includes("sauna") || text.includes("wellness")) return FaSpa;
+            if (text.includes("restaurant") || text.includes("ristorante") || text.includes("dining") || text.includes("cena")) return FaUtensils;
+            if (text.includes("shuttle") || text.includes("transfer") || text.includes("taxi") || text.includes("airport")) return FaShuttleVan;
+            if (text.includes("tv") || text.includes("television")) return FaTv;
+            if (text.includes("reception") || text.includes("concierge") || text.includes("front desk") || text.includes("24")) return FaConciergeBell;
+            if (text.includes("baby") || text.includes("crib") || text.includes("cot") || text.includes("culla")) return FaBaby;
+            if (text.includes("pet") || text.includes("dog") || text.includes("cats") || text.includes("animali")) return FaDog;
+            if (text.includes("wheelchair") || text.includes("accessible") || text.includes("accessibile")) return FaWheelchair;
+            if (text.includes("key") || text.includes("lock") || text.includes("safe")) return FaKey;
+            if (text.includes("card") || text.includes("credit") || text.includes("payment") || text.includes("pagamento")) return FaCreditCard;
+            return FaCoffee;
+    };
+
   const getRoomImage = (roomName: string) => {
       if (!roomName) return null;
       const name = roomName.toLowerCase();
@@ -426,14 +447,8 @@ const PublicSite: React.FC = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                             {profile.amenities.split(',').map((item, idx) => {
                                 const text = item.trim();
-                                // Simple keyword matching for icons
-                                let Icon = FaCoffee;
-                                if (text.toLowerCase().includes('wifi')) Icon = FaWifi;
-                                else if (text.toLowerCase().includes('park')) Icon = FaCar;
-                                else if (text.toLowerCase().includes('net')) Icon = FaWifi;
-                                
-                                // Skip pool if explicitly listed
-                                if (text.toLowerCase().includes('pool')) return null;
+                                if (!text) return null;
+                                const Icon = getAmenityIcon(text);
 
                                 return (
                                     <div key={idx} className="flex flex-col items-center gap-3 text-gray-500 animate-fade-in">
