@@ -247,7 +247,7 @@ const PublicSite: React.FC = () => {
   const bgStyle = { 
     backgroundImage: `url(${heroImage})`,
     backgroundSize: 'cover', 
-    backgroundPosition: 'center',
+        backgroundPosition: 'center top',
     backgroundColor: '#333' // Fallback color just in case
   };
 
@@ -336,7 +336,7 @@ const PublicSite: React.FC = () => {
 
       {/* HERO SECTION */}
       {profile.contentJson?.hero?.show !== false && (
-          <section className="relative h-screen min-h-[600px] flex items-center justify-center bg-cover bg-center text-center px-4" style={bgStyle}>
+          <section className="relative h-screen min-h-[600px] flex items-center justify-center bg-cover bg-center text-center px-4 pt-24 md:pt-32" style={bgStyle}>
             <div className="absolute inset-0 bg-black/40"></div>
             <div className="relative z-10 text-white max-w-4xl animate-fade-in-up">
                 <h2 className="text-lg md:text-xl font-light tracking-[0.2em] mb-4 uppercase">{heroSubtitle}</h2>
