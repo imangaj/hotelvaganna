@@ -32,13 +32,37 @@ const getTransporter = () => {
   });
 };
 
-export const sendBookingEmails = async (payload: BookingEmailPayload) => {
-  const transporter = getTransporter();
-  if (!transporter) {
-    console.warn("SMTP not configured. Skipping email sending.");
-    return;
+const sendMailgun = async (payload: BookingEmailPayload, subject: string, html: string, to: string) => {
+  const apiKey = process.env.MAILGUN_API_KEY;
+  const domain = process.env.MAILGUN_DOMAIN;
+  if (!apiKey || !domain) return false;
+
+  const from = process.env.MAILGUN_FROM || payload.hotelEmail || "hotel.valganna2023@gmail.com";
+  const params = new URLSearchParams();
+  params.append("from", from);
+  params.append("to", to);
+  params.append("subject", subject);
+  params.append("html", html);
+
+  const res = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`api:${apiKey}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: params.toString()
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    console.error("Mailgun error", res.status, msg);
+    return false;
   }
 
+  return true;
+};
+
+export const sendBookingEmails = async (payload: BookingEmailPayload) => {
   const from = process.env.SMTP_FROM || payload.hotelEmail || "no-reply@hotel.local";
   const checkIn = payload.checkInDate.toLocaleDateString("it-IT");
   const checkOut = payload.checkOutDate.toLocaleDateString("it-IT");
@@ -58,6 +82,17 @@ export const sendBookingEmails = async (payload: BookingEmailPayload) => {
       <p>If you have any questions, reply to this email.</p>
     </div>
   `;
+
+  const mailgunOk = await sendMailgun(payload, subjectGuest, html, payload.guestEmail);
+  await sendMailgun(payload, subjectHotel, html, payload.hotelEmail);
+
+  if (mailgunOk) return;
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.warn("SMTP not configured. Skipping email sending.");
+    return;
+  }
 
   await transporter.sendMail({
     from,
