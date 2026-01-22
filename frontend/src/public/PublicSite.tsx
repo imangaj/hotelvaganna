@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { propertyAPI, roomAPI, guestAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard, FaSwimmingPool, FaSnowflake, FaDumbbell, FaSpa, FaUtensils, FaShuttleVan, FaTv, FaConciergeBell, FaBaby, FaDog, FaWheelchair, FaKey } from "react-icons/fa";
+import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard, FaSwimmingPool, FaSnowflake, FaDumbbell, FaSpa, FaUtensils, FaShuttleVan, FaTv, FaConciergeBell, FaBaby, FaDog, FaWheelchair, FaKey, FaWind } from "react-icons/fa";
 import { MdSingleBed, MdKingBed, MdBed } from "react-icons/md";
 import LanguageSelector from "../components/LanguageSelector";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -375,6 +375,7 @@ const PublicSite: React.FC = () => {
             if (text.includes("breakfast") || text.includes("coffee") || text.includes("colazione")) return FaCoffee;
             if (text.includes("parking") || text.includes("park") || text.includes("garage")) return FaCar;
             if (text.includes("pool") || text.includes("piscina")) return FaSwimmingPool;
+            if (text.includes("aria") || text.includes("condizionata")) return FaWind;
             if (text.includes("air") || text.includes("a/c") || text.includes("ac") || text.includes("condition") || text.includes("climat")) return FaSnowflake;
             if (text.includes("gym") || text.includes("fitness") || text.includes("palestra")) return FaDumbbell;
             if (text.includes("spa") || text.includes("sauna") || text.includes("wellness")) return FaSpa;
