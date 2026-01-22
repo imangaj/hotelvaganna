@@ -675,6 +675,7 @@ const PublicSite: React.FC = () => {
                                 <div className="text-5xl mb-3">✅</div>
                                 <h3 className="text-2xl font-playfair font-bold text-gray-800">Booking Confirmed!</h3>
                                 <p className="text-gray-600 mt-1">We sent a confirmation to {confirmation?.guest.email}.</p>
+                                <p className="text-xs text-gray-500 mt-2">No account is required to book. You can view or print this reservation anytime at /guest using the same email.</p>
                             </div>
 
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">

@@ -179,7 +179,7 @@ const GuestPortal: React.FC = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm max-w-md mx-auto">
             <h2 className="text-2xl font-bold mb-2">Guest Login</h2>
             <p className="text-sm text-gray-500 mb-6">
-              Use the same email you used for your reservation.
+              Use the same email you used for your reservation. You can book without an account and create one later.
             </p>
 
             <div className="flex gap-2 mb-6">
