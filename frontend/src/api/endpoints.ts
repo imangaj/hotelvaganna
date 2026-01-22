@@ -112,6 +112,17 @@ export const publicAPI = {
     apiClient.get("/public/search", { params }),
 };
 
+export const guestAuthAPI = {
+  register: (data: { email: string; password: string }) =>
+    apiClient.post("/guest-auth/register", data),
+  login: (data: { email: string; password: string }) =>
+    apiClient.post("/guest-auth/login", data),
+  getBookings: (token: string) =>
+    apiClient.get("/guest-auth/bookings", {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+};
+
 
 
 

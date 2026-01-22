@@ -109,6 +109,17 @@ model Guest {
   @@map("guests")
 }
 
+// Guest Portal Accounts
+model GuestAccount {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("guest_accounts")
+}
+
 // Bookings
 model Booking {
   id              Int       @id @default(autoincrement())

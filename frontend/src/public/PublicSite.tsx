@@ -423,6 +423,7 @@ const PublicSite: React.FC = () => {
                 {profile.contentJson?.about?.show !== false && <a href="#about" className="hover:text-gold-500 transition-colors">{t('nav_about')}</a>}
                 <a href="#rooms" className="hover:text-gold-500 transition-colors">{t('nav_suites')}</a>
                 {profile.contentJson?.map?.show !== false && <a href="#location" className="hover:text-gold-500 transition-colors">{t('nav_location')}</a>}
+                <a href="/guest" className="hover:text-gold-500 transition-colors">My Reservation</a>
             </nav>
             <div className="flex items-center gap-4">
                 <LanguageSelector />
