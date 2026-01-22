@@ -197,6 +197,34 @@
     color: #7f8c8d;
 }
 
+.booking-extras {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 4px 0 2px;
+}
+
+.extra-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: #ecf0f1;
+    color: #2c3e50;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.extra-breakfast {
+    background: #fff3cd;
+    color: #8a6d1a;
+}
+
+.extra-parking {
+    background: #e8f4ff;
+    color: #1f5d9a;
+}
+
 .source-badge {
     background: #bdc3c7;
     color: white;

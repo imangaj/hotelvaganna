@@ -436,6 +436,18 @@ const CalendarView: React.FC = () => {
                                             <span className="guest-name">
                                                 {booking.guest ? `${booking.guest.firstName} ${booking.guest.lastName}` : 'Unknown Guest'}
                                             </span>
+                                            {(booking.breakfastCount > 0 || booking.parkingIncluded) && (
+                                                <div className="booking-extras">
+                                                    {booking.breakfastCount > 0 && (
+                                                        <span className="extra-badge extra-breakfast">
+                                                            Breakfast x{booking.breakfastCount}
+                                                        </span>
+                                                    )}
+                                                    {booking.parkingIncluded && (
+                                                        <span className="extra-badge extra-parking">Parking</span>
+                                                    )}
+                                                </div>
+                                            )}
                                             <div className="booking-details-row">
                                                 <span className={`source-badge source-${booking.source.toLowerCase().replace('.', '')}`}>
                                                     {booking.source}
