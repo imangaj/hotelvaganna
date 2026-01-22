@@ -311,6 +311,15 @@ const HousekeepingPage: React.FC = () => {
         const roomBookings = bookings.filter(b => b.roomId === room.id && ["CONFIRMED", "CHECKED_IN"].includes(b.bookingStatus));
         if (roomBookings.length === 0) return null;
 
+        const checkoutBooking = roomBookings.find(b => {
+            const checkoutKey = toDateKey(b.checkOutDate);
+            return todayKey === checkoutKey;
+        });
+
+        if (checkoutBooking) {
+            return { code: "P", label: t("hk_due_out_today"), classes: "bg-red-100 text-red-800 border-red-200" };
+        }
+
         const activeBooking = roomBookings.find(b => {
             const checkIn = toDateKey(b.checkInDate);
             const checkOut = toDateKey(b.checkOutDate);
@@ -322,11 +331,6 @@ const HousekeepingPage: React.FC = () => {
         const checkInKey = toDateKey(activeBooking.checkInDate);
         if (todayKey === checkInKey) {
             return null;
-        }
-
-        const checkoutKey = toDateKey(activeBooking.checkOutDate);
-        if (todayKey === checkoutKey) {
-            return { code: "P", label: t("hk_due_out_today"), classes: "bg-red-100 text-red-800 border-red-200" };
         }
 
         return { code: "F", label: t("hk_occupied_stayover"), classes: "bg-purple-100 text-purple-800 border-purple-200" };
