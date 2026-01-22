@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { dashboardAPI } from "../api/endpoints";
+import React, { useState, useEffect, useRef } from "react";
+import { bookingAPI, dashboardAPI } from "../api/endpoints";
 import BookingsPage from "../pages/BookingsPage.tsx";
 import AnalyticsPage from "../pages/AnalyticsPage.tsx";
 import GuestsPage from "../pages/GuestsPage.tsx";
@@ -31,6 +31,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [currentView, setCurrentView] = useState<ViewType>("dashboard");
   const [userRole, setUserRole] = useState<string>("ADMIN");
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [bookingAlerts, setBookingAlerts] = useState<Array<{
+    id: number;
+    guestName: string;
+    checkInDate: string;
+    checkOutDate: string;
+    numberOfGuests: number;
+    totalPrice: number;
+    source: string;
+    createdAt: string;
+  }>>([]);
+  const lastSeenBookingTime = useRef<number>(0);
 
   const getAllowedViews = (role: string): ViewType[] => {
     switch (role) {
@@ -58,6 +69,72 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         setCurrentView(allowedViews[0]);
       }
     }
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const res = await bookingAPI.getAll();
+        const data = res.data || [];
+        const maxTime = data.reduce((max: number, booking: any) => {
+          const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
+          return t > max ? t : max;
+        }, 0);
+        lastSeenBookingTime.current = maxTime;
+      } catch (error) {
+        console.error("Failed to init booking alerts", error);
+      }
+    };
+
+    init();
+  }, []);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await bookingAPI.getAll();
+        const data = res.data || [];
+        const fresh = data.filter((booking: any) => {
+          const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
+          return t > lastSeenBookingTime.current;
+        });
+
+        if (fresh.length > 0) {
+          const newestTime = fresh.reduce((max: number, booking: any) => {
+            const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
+            return t > max ? t : max;
+          }, lastSeenBookingTime.current);
+          lastSeenBookingTime.current = newestTime;
+
+          const newAlerts = fresh.map((booking: any) => ({
+            id: booking.id,
+            guestName: `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim() || "Guest",
+            checkInDate: booking.checkInDate,
+            checkOutDate: booking.checkOutDate,
+            numberOfGuests: booking.numberOfGuests || 0,
+            totalPrice: booking.totalPrice || 0,
+            source: booking.source || "website",
+            createdAt: booking.createdAt || "",
+          }));
+
+          setBookingAlerts((prev) => {
+            const merged = [...newAlerts, ...prev];
+            return merged.slice(0, 5);
+          });
+
+          newAlerts.forEach((alert) => {
+            setTimeout(() => {
+              setBookingAlerts((prev) => prev.filter((a) => a.id !== alert.id));
+            }, 10000);
+          });
+        }
+      } catch (error) {
+        console.error("Failed to poll bookings", error);
+      }
+    };
+
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleViewChange = (view: ViewType) => {
@@ -237,6 +314,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       />
 
       <main className="main-content">
+        {bookingAlerts.length > 0 && (
+          <div className="admin-toast-container">
+            {bookingAlerts.map((alert) => (
+              <div key={alert.id} className="admin-toast">
+                <button
+                  className="admin-toast-close"
+                  onClick={() => setBookingAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+                <div className="admin-toast-title">New Reservation</div>
+                <div className="admin-toast-body">
+                  <div><strong>Guest:</strong> {alert.guestName}</div>
+                  <div><strong>Dates:</strong> {new Date(alert.checkInDate).toLocaleDateString()} — {new Date(alert.checkOutDate).toLocaleDateString()}</div>
+                  <div><strong>Guests:</strong> {alert.numberOfGuests}</div>
+                  <div><strong>Total:</strong> €{alert.totalPrice.toFixed(2)}</div>
+                  <div><strong>Source:</strong> {alert.source}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 50 }}>
           <div className="header-left">
             <button

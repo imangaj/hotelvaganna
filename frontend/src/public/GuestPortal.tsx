@@ -138,7 +138,7 @@ const GuestPortal: React.FC = () => {
             <div class="title">Reservation ${booking.bookingNumber || `#${booking.id}`}</div>
             <div class="row"><span>Guest</span><span>${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}</span></div>
             <div class="row"><span>Dates</span><span>${formatDate(booking.checkInDate)} — ${formatDate(booking.checkOutDate)}</span></div>
-            <div class="row"><span>Room</span><span>${booking.room?.roomType || "Room"} ${booking.room?.roomNumber ? `(${booking.room.roomNumber})` : ""}</span></div>
+            <div class="row"><span>Room</span><span>${booking.room?.roomType || "Room"}</span></div>
             <div class="row"><span>Guests</span><span>${booking.numberOfGuests}</span></div>
             <div class="row"><span>Extras</span><span>${extras || "None"}</span></div>
             <div class="row"><span>Total</span><span>€${booking.totalPrice.toFixed(2)}</span></div>
@@ -269,7 +269,7 @@ const GuestPortal: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-gray-500">Room</div>
-                        <div className="font-medium">{booking.room?.roomType || "Room"} {booking.room?.roomNumber ? `(${booking.room.roomNumber})` : ""}</div>
+                        <div className="font-medium">{booking.room?.roomType || "Room"}</div>
                       </div>
                       <div>
                         <div className="text-gray-500">Guests</div>

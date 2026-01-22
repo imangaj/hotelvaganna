@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useState, useEffect } from "react";
-import { dashboardAPI } from "../api/endpoints";
+import { useState, useEffect, useRef } from "react";
+import { bookingAPI, dashboardAPI } from "../api/endpoints";
 import BookingsPage from "../pages/BookingsPage";
 import AnalyticsPage from "../pages/AnalyticsPage";
 import GuestsPage from "../pages/GuestsPage";
@@ -13,6 +13,67 @@ import "./AdminDashboard.css";
 const AdminDashboard = ({ onLogout }) => {
     const [currentView, setCurrentView] = useState("dashboard");
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [bookingAlerts, setBookingAlerts] = useState([]);
+    const lastSeenBookingTime = useRef(0);
+
+    useEffect(() => {
+        const init = async () => {
+            try {
+                const res = await bookingAPI.getAll();
+                const data = res.data || [];
+                const maxTime = data.reduce((max, booking) => {
+                    const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
+                    return t > max ? t : max;
+                }, 0);
+                lastSeenBookingTime.current = maxTime;
+            }
+            catch (error) {
+                console.error("Failed to init booking alerts", error);
+            }
+        };
+        init();
+    }, []);
+
+    useEffect(() => {
+        const poll = async () => {
+            try {
+                const res = await bookingAPI.getAll();
+                const data = res.data || [];
+                const fresh = data.filter((booking) => {
+                    const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
+                    return t > lastSeenBookingTime.current;
+                });
+                if (fresh.length > 0) {
+                    const newestTime = fresh.reduce((max, booking) => {
+                        const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
+                        return t > max ? t : max;
+                    }, lastSeenBookingTime.current);
+                    lastSeenBookingTime.current = newestTime;
+                    const newAlerts = fresh.map((booking) => ({
+                        id: booking.id,
+                        guestName: `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim() || "Guest",
+                        checkInDate: booking.checkInDate,
+                        checkOutDate: booking.checkOutDate,
+                        numberOfGuests: booking.numberOfGuests || 0,
+                        totalPrice: booking.totalPrice || 0,
+                        source: booking.source || "website",
+                        createdAt: booking.createdAt || "",
+                    }));
+                    setBookingAlerts((prev) => [...newAlerts, ...prev].slice(0, 5));
+                    newAlerts.forEach((alert) => {
+                        setTimeout(() => {
+                            setBookingAlerts((prev) => prev.filter((a) => a.id !== alert.id));
+                        }, 10000);
+                    });
+                }
+            }
+            catch (error) {
+                console.error("Failed to poll bookings", error);
+            }
+        };
+        const interval = setInterval(poll, 15000);
+        return () => clearInterval(interval);
+    }, []);
     const handleViewChange = (view) => {
         console.log("Changing view to:", view);
         setCurrentView(view);
@@ -40,7 +101,7 @@ const AdminDashboard = ({ onLogout }) => {
                 return _jsx(DashboardOverview, { onNavigate: handleViewChange });
         }
     };
-    return (_jsxs("div", { className: "dashboard-container", children: [_jsxs("aside", { className: `sidebar ${isSidebarOpen ? "open" : ""}`, children: [_jsx("h1", { className: "sidebar-title", children: "\uD83C\uDFE8 PMS" }), _jsx("div", { className: "sidebar-language", children: _jsx(LanguageSelector, {}) }), _jsx("nav", { className: "sidebar-menu", children: _jsxs("ul", { children: [_jsx("li", { children: _jsxs("button", { className: currentView === "dashboard" ? "active" : "", onClick: () => handleViewChange("dashboard"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCCA" }), "Dashboard"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "calendar" ? "active" : "", onClick: () => handleViewChange("calendar"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCC5" }), "Calendar / Daily"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "bookings" ? "active" : "", onClick: () => handleViewChange("bookings"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCC5" }), "Bookings"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "pricing" ? "active" : "", onClick: () => handleViewChange("pricing"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCB0" }), "Pricing"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "housekeeping" ? "active" : "", onClick: () => handleViewChange("housekeeping"), children: [_jsx("span", { className: "menu-icon", children: "\uD83E\uDDF9" }), "Housekeeping"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "guests" ? "active" : "", onClick: () => handleViewChange("guests"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDC65" }), "Guests"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "analytics" ? "active" : "", onClick: () => handleViewChange("analytics"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCC8" }), "Analytics"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "settings" ? "active" : "", onClick: () => handleViewChange("settings"), children: [_jsx("span", { className: "menu-icon", children: "\u2699\uFE0F" }), "Settings"] }) })] }) }), _jsx("div", { className: "sidebar-footer", children: _jsxs("button", { className: "logout-sidebar-btn", onClick: onLogout, children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDEAA" }), "Logout"] }) })] }), _jsx("div", { className: `sidebar-overlay ${isSidebarOpen ? "show" : ""}`, onClick: () => setIsSidebarOpen(false) }), _jsxs("main", { className: "main-content", children: [_jsxs("header", { className: "header", children: [_jsxs("div", { className: "header-left", children: [_jsx("button", { className: "hamburger-btn", onClick: () => setIsSidebarOpen(prev => !prev), "aria-label": "Toggle menu", children: "\u2630" }), _jsxs("h1", { className: "page-title", children: [currentView === "dashboard" && "Dashboard Overview", currentView === "housekeeping" && "Housekeeping Tasks", currentView === "bookings" && "Bookings", currentView === "guests" && "Guest Management", currentView === "analytics" && "Analytics & Reports", currentView === "settings" && "Settings & Configuration", currentView === "pricing" && "Pricing Management", currentView === "calendar" && "Calendar"] })] }), _jsx("div", { className: "header-right", children: _jsx("button", { className: "logout-btn", onClick: onLogout, children: "Logout" }) })] }), _jsx("div", { className: "content-area", children: renderContent() })] })] }));
+    return (_jsxs("div", { className: "dashboard-container", children: [_jsxs("aside", { className: `sidebar ${isSidebarOpen ? "open" : ""}`, children: [_jsx("h1", { className: "sidebar-title", children: "\uD83C\uDFE8 PMS" }), _jsx("div", { className: "sidebar-language", children: _jsx(LanguageSelector, {}) }), _jsx("nav", { className: "sidebar-menu", children: _jsxs("ul", { children: [_jsx("li", { children: _jsxs("button", { className: currentView === "dashboard" ? "active" : "", onClick: () => handleViewChange("dashboard"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCCA" }), "Dashboard"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "calendar" ? "active" : "", onClick: () => handleViewChange("calendar"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCC5" }), "Calendar / Daily"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "bookings" ? "active" : "", onClick: () => handleViewChange("bookings"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCC5" }), "Bookings"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "pricing" ? "active" : "", onClick: () => handleViewChange("pricing"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCB0" }), "Pricing"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "housekeeping" ? "active" : "", onClick: () => handleViewChange("housekeeping"), children: [_jsx("span", { className: "menu-icon", children: "\uD83E\uDDF9" }), "Housekeeping"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "guests" ? "active" : "", onClick: () => handleViewChange("guests"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDC65" }), "Guests"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "analytics" ? "active" : "", onClick: () => handleViewChange("analytics"), children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDCC8" }), "Analytics"] }) }), _jsx("li", { children: _jsxs("button", { className: currentView === "settings" ? "active" : "", onClick: () => handleViewChange("settings"), children: [_jsx("span", { className: "menu-icon", children: "\u2699\uFE0F" }), "Settings"] }) })] }) }), _jsx("div", { className: "sidebar-footer", children: _jsxs("button", { className: "logout-sidebar-btn", onClick: onLogout, children: [_jsx("span", { className: "menu-icon", children: "\uD83D\uDEAA" }), "Logout"] }) })] }), _jsx("div", { className: `sidebar-overlay ${isSidebarOpen ? "show" : ""}`, onClick: () => setIsSidebarOpen(false) }), _jsxs("main", { className: "main-content", children: [bookingAlerts.length > 0 && (_jsx("div", { className: "admin-toast-container", children: bookingAlerts.map((alert) => (_jsxs("div", { className: "admin-toast", children: [_jsx("button", { className: "admin-toast-close", onClick: () => setBookingAlerts((prev) => prev.filter((a) => a.id !== alert.id)), "aria-label": "Dismiss", children: "×" }), _jsx("div", { className: "admin-toast-title", children: "New Reservation" }), _jsxs("div", { className: "admin-toast-body", children: [_jsxs("div", { children: [_jsx("strong", { children: "Guest:" }), " ", alert.guestName] }), _jsxs("div", { children: [_jsx("strong", { children: "Dates:" }), " ", new Date(alert.checkInDate).toLocaleDateString(), " — ", new Date(alert.checkOutDate).toLocaleDateString()] }), _jsxs("div", { children: [_jsx("strong", { children: "Guests:" }), " ", alert.numberOfGuests] }), _jsxs("div", { children: [_jsx("strong", { children: "Total:" }), " ", "€", alert.totalPrice.toFixed(2)] }), _jsxs("div", { children: [_jsx("strong", { children: "Source:" }), " ", alert.source] })] })] }, alert.id))) })), _jsxs("header", { className: "header", children: [_jsxs("div", { className: "header-left", children: [_jsx("button", { className: "hamburger-btn", onClick: () => setIsSidebarOpen(prev => !prev), "aria-label": "Toggle menu", children: "\u2630" }), _jsxs("h1", { className: "page-title", children: [currentView === "dashboard" && "Dashboard Overview", currentView === "housekeeping" && "Housekeeping Tasks", currentView === "bookings" && "Bookings", currentView === "guests" && "Guest Management", currentView === "analytics" && "Analytics & Reports", currentView === "settings" && "Settings & Configuration", currentView === "pricing" && "Pricing Management", currentView === "calendar" && "Calendar"] })] }), _jsx("div", { className: "header-right", children: _jsx("button", { className: "logout-btn", onClick: onLogout, children: "Logout" }) })] }), _jsx("div", { className: "content-area", children: renderContent() })] })] }));
 };
 const DashboardOverview = ({ onNavigate }) => {
     const [stats, setStats] = useState({
