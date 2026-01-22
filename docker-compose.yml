@@ -20,7 +20,7 @@ services:
       SMTP_HOST: "smtp.libero.it"
       SMTP_PORT: 465
       SMTP_USER: "hotel.valganna@libero.it"
-      SMTP_PASS: "CHANGE_ME"
+      SMTP_PASS: "hotelvalganna123"
       SMTP_FROM: "hotel.valganna@libero.it"
     volumes:
       - ./backend/src:/app/src

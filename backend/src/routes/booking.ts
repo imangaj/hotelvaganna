@@ -35,6 +35,7 @@ router.get("/", async (req: Request, res: Response) => {
       breakfastCount: booking.breakfastCount,
       parkingIncluded: booking.parkingIncluded,
       paidAmount: booking.paidAmount,
+      createdAt: booking.createdAt,
       property: booking.property,
       guest: booking.guest,
       room: {

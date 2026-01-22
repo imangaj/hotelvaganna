@@ -16,6 +16,8 @@ interface Booking {
   notes?: string;
   property?: any;
   room?: any;
+  guest?: { firstName?: string; lastName?: string; email?: string };
+  createdAt?: string;
 }
 
 interface Room {
@@ -353,12 +355,13 @@ const BookingsPage: React.FC = () => {
             <thead>
               <tr>
                 <th>{t("bk_table_id")}</th>
-                <th>{t("bk_table_property")}</th>
+                <th>{t("bk_table_first_name")}</th>
+                <th>{t("bk_table_last_name")}</th>
                 <th>{t("bk_table_room")}</th>
                 <th>{t("bk_table_room_type")}</th>
-                <th>{t("bk_table_breakfast")}</th>
                 <th>{t("bk_table_check_in")}</th>
                 <th>{t("bk_table_check_out")}</th>
+                <th>{t("bk_table_created_at")}</th>
                 <th>{t("bk_table_guests")}</th>
                 <th>{t("bk_table_total_price")}</th>
                 <th>{t("bk_table_booking_status")}</th>
@@ -371,7 +374,8 @@ const BookingsPage: React.FC = () => {
               {filteredByProperty.map((booking) => (
                 <tr key={booking.id}>
                   <td>#{booking.id}</td>
-                  <td>{booking.property?.name || `${t("bk_table_property")} ${booking.propertyId}`}</td>
+                  <td>{booking.guest?.firstName || "-"}</td>
+                  <td>{booking.guest?.lastName || "-"}</td>
                   <td>
                     {editingRoomId === booking.id ? (
                       <select
@@ -408,13 +412,9 @@ const BookingsPage: React.FC = () => {
                     )}
                   </td>
                   <td>{booking.room?.roomType || "-"}</td>
-                  <td>
-                    {booking.room?.breakfastIncluded
-                      ? `${t("bk_breakfast_included")}${booking.room?.breakfastPrice ? ` (+$${booking.room?.breakfastPrice})` : ""}`
-                      : t("bk_breakfast_not_included")}
-                  </td>
                   <td>{formatDate(booking.checkInDate)}</td>
                   <td>{formatDate(booking.checkOutDate)}</td>
+                  <td>{booking.createdAt ? formatDate(booking.createdAt) : "-"}</td>
                   <td>{booking.numberOfGuests}</td>
                   <td>${booking.totalPrice.toFixed(2)}</td>
                   <td>

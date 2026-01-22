@@ -73,6 +73,19 @@ const PublicSite: React.FC = () => {
   const [bookingStep, setBookingStep] = useState(1);
   const [wantsBreakfast, setWantsBreakfast] = useState(false);
   const [wantsParking, setWantsParking] = useState(false);
+    const [confirmation, setConfirmation] = useState<null | {
+        guest: { firstName: string; lastName: string; email: string; phone: string };
+        checkIn: string;
+        checkOut: string;
+        bookedAt: string;
+        roomTypeName: string;
+        roomCount: number;
+        guests: number;
+        wantsBreakfast: boolean;
+        wantsParking: boolean;
+        totalPrice: number;
+        bookingRefs: string[];
+    }>(null);
 
   useEffect(() => {
     loadInitialData();
@@ -205,6 +218,9 @@ const PublicSite: React.FC = () => {
               ? selectedRoomType.sampleRoom.ids 
               : [selectedRoomType.sampleRoom.id];
 
+          const createdRefs: string[] = [];
+          let totalForAllRooms = 0;
+
           for (let i = 0; i < roomCount; i++) {
               // Distribute guests across rooms
               const guestsForThisRoom = Math.floor(guests / roomCount) + (i === 0 ? guests % roomCount : 0);
@@ -212,10 +228,11 @@ const PublicSite: React.FC = () => {
               const thisBreakfastCost = wantsBreakfast ? (PRICE_BREAKFAST * guestsForThisRoom * nights) : 0;
               const thisParkingCost = (wantsParking && i === 0) ? (PRICE_PARKING * nights) : 0;
               const thisBookingTotal = roomPrice + thisBreakfastCost + thisParkingCost;
+              totalForAllRooms += thisBookingTotal;
               
               const roomIdToUse = roomIds[i] || roomIds[0];
 
-              await bookingAPI.create({
+              const bookingRes = await bookingAPI.create({
                   guestId: guestRes.data.id,
                   propertyId: selectedRoomType.sampleRoom.propertyId,
                   roomId: roomIdToUse, 
@@ -229,16 +246,24 @@ const PublicSite: React.FC = () => {
                   paidAmount: thisBookingTotal, // Fully Pre-Paid
                   status: "confirmed"
               });
+              const ref = bookingRes.data?.bookingNumber || (bookingRes.data?.id ? `#${bookingRes.data.id}` : "");
+              if (ref) createdRefs.push(ref);
           }
           
+          setConfirmation({
+            guest: { ...guestDetails },
+            checkIn,
+            checkOut,
+                        bookedAt: new Date().toISOString(),
+            roomTypeName: selectedRoomType?.name || "",
+            roomCount,
+            guests,
+            wantsBreakfast,
+            wantsParking,
+            totalPrice: totalForAllRooms,
+            bookingRefs: createdRefs.length ? createdRefs : ["Confirmed"],
+          });
           setBookingStatus("success");
-          setTimeout(() => {
-              setShowModal(false);
-              setBookingStatus("idle");
-              setGuestDetails({ firstName: "", lastName: "", email: "", phone: "" });
-              setWantsBreakfast(false);
-              setWantsParking(false);
-          }, 2000);
 
       } catch (err) {
           console.error(err);
@@ -644,10 +669,65 @@ const PublicSite: React.FC = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
               <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-8 animate-fade-in-up">
                     {bookingStatus === "success" ? (
-                        <div className="text-center py-8">
-                            <div className="text-5xl mb-4">✅</div>
-                            <h3 className="text-2xl font-playfair font-bold text-gray-800 mb-2">Booking Confirmed!</h3>
-                            <p className="text-gray-600">We have sent a confirmation to {guestDetails.email}.</p>
+                        <div className="space-y-5">
+                            <div className="text-center">
+                                <div className="text-5xl mb-3">✅</div>
+                                <h3 className="text-2xl font-playfair font-bold text-gray-800">Booking Confirmed!</h3>
+                                <p className="text-gray-600 mt-1">We sent a confirmation to {confirmation?.guest.email}.</p>
+                            </div>
+
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">
+                                <div className="flex justify-between">
+                                    <span className="font-semibold">Reservation</span>
+                                    <span>{confirmation ? confirmation.bookingRefs.join(", ") : ""}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-semibold">Guest</span>
+                                    <span>{confirmation ? `${confirmation.guest.firstName} ${confirmation.guest.lastName}` : ""}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-semibold">Dates</span>
+                                    <span>{confirmation ? new Date(confirmation.checkIn).toLocaleDateString() : ""} — {confirmation ? new Date(confirmation.checkOut).toLocaleDateString() : ""}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-semibold">Booked On</span>
+                                    <span>{confirmation ? new Date(confirmation.bookedAt).toLocaleDateString() : ""}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-semibold">Room</span>
+                                    <span>{confirmation ? `${confirmation.roomTypeName} × ${confirmation.roomCount}` : ""}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-semibold">Guests</span>
+                                    <span>{confirmation?.guests ?? ""}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-semibold">Extras</span>
+                                                                        <span>
+                                                                            {confirmation?.wantsBreakfast ? "Breakfast" : "No breakfast"}{confirmation?.wantsParking ? " + Parking" : ""}
+                                                                        </span>
+                                </div>
+                                <div className="flex justify-between text-base font-bold pt-2 border-t">
+                                    <span>Total Paid</span>
+                                    <span>${confirmation ? confirmation.totalPrice.toFixed(2) : "0.00"}</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setShowModal(false);
+                                    setBookingStatus("idle");
+                                    setConfirmation(null);
+                                    setGuestDetails({ firstName: "", lastName: "", email: "", phone: "" });
+                                    setWantsBreakfast(false);
+                                    setWantsParking(false);
+                                    setBookingStep(1);
+                                }}
+                                className="w-full py-3 text-white font-bold uppercase tracking-widest transition-colors rounded shadow"
+                                style={{ backgroundColor: profile.primaryColor }}
+                            >
+                                Close
+                            </button>
                         </div>
                     ) : (
                         <>
