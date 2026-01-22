@@ -116,4 +116,13 @@ router.get("/bookings", requireGuestAuth, async (req: GuestAuthRequest, res: Res
   }
 });
 
+router.get("/me", requireGuestAuth, async (req: GuestAuthRequest, res: Response) => {
+  const email = req.guest?.email;
+  if (!email) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  return res.json({ email });
+});
+
 export default router;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { propertyAPI, roomAPI, guestAPI, hotelProfileAPI, bookingAPI, publicAPI } from "../api/endpoints";
+import { propertyAPI, roomAPI, guestAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard, FaSwimmingPool, FaSnowflake, FaDumbbell, FaSpa, FaUtensils, FaShuttleVan, FaTv, FaConciergeBell, FaBaby, FaDog, FaWheelchair, FaKey } from "react-icons/fa";
@@ -73,6 +73,8 @@ const PublicSite: React.FC = () => {
   const [bookingStep, setBookingStep] = useState(1);
   const [wantsBreakfast, setWantsBreakfast] = useState(false);
   const [wantsParking, setWantsParking] = useState(false);
+    const [guestToken, setGuestToken] = useState<string | null>(localStorage.getItem("guestToken"));
+    const [guestEmail, setGuestEmail] = useState<string>("");
     const [confirmation, setConfirmation] = useState<null | {
         guest: { firstName: string; lastName: string; email: string; phone: string };
         checkIn: string;
@@ -90,6 +92,22 @@ const PublicSite: React.FC = () => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+    useEffect(() => {
+        const loadGuestProfile = async () => {
+            if (!guestToken) return;
+            try {
+                const res = await guestAuthAPI.me(guestToken);
+                const email = res.data?.email || "";
+                setGuestEmail(email);
+                setGuestDetails((prev) => ({ ...prev, email }));
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        loadGuestProfile();
+    }, [guestToken]);
 
   const loadInitialData = async () => {
     try {
@@ -152,6 +170,13 @@ const PublicSite: React.FC = () => {
   };
 
   const handleBookClick = (roomType: any) => {
+      const token = localStorage.getItem("guestToken");
+      if (!token) {
+          alert("Please log in or create a guest account before booking.");
+          window.location.href = "/guest";
+          return;
+      }
+      setGuestToken(token);
       setSelectedRoomType(roomType);
       setBookingStatus("idle");
       setBookingStep(1);
@@ -183,6 +208,12 @@ const PublicSite: React.FC = () => {
   };
 
   const confirmBooking = async () => {
+      const token = localStorage.getItem("guestToken");
+      if (!token) {
+          alert("Please log in or create a guest account before booking.");
+          window.location.href = "/guest";
+          return;
+      }
       if (!selectedRoomType || !guestDetails.firstName || !guestDetails.email || !guestDetails.phone) {
           alert("Please fill in all guest details including phone number.");
           return;
@@ -803,7 +834,15 @@ const PublicSite: React.FC = () => {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email Address</label>
-                                            <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={guestDetails.email} onChange={e => setGuestDetails({...guestDetails, email: e.target.value})} />
+                                            <input
+                                                className="border p-2 w-full rounded outline-none focus:border-primary-500"
+                                                value={guestDetails.email}
+                                                onChange={e => setGuestDetails({ ...guestDetails, email: e.target.value })}
+                                                disabled={!!guestEmail}
+                                            />
+                                            {guestEmail && (
+                                                <p className="text-xs text-gray-500 mt-1">Email is linked to your guest account.</p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone Number</label>

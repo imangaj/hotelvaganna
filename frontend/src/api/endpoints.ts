@@ -121,6 +121,10 @@ export const guestAuthAPI = {
     apiClient.get("/guest-auth/bookings", {
       headers: { Authorization: `Bearer ${token}` },
     }),
+  me: (token: string) =>
+    apiClient.get("/guest-auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
 };
 
 
