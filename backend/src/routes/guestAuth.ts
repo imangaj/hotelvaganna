@@ -162,8 +162,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
 
       // If email not configured (DEV mode), return token in response for testing
       if (!emailSent) {
-        console.log(`[DEV MODE] Password reset link for ${email}:`);
-        console.log(`${frontendUrl}/reset-password?token=${resetToken}`);
+        console.log(`[DEV MODE] Password reset requested for ${email}`);
         return res.json({
           message: "If an account exists with this email, a password reset link has been sent.",
           devMode: true,
