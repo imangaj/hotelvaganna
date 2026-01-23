@@ -230,8 +230,7 @@ const PublicSite: React.FC = () => {
             propertyId: 1, // Hardcoded for single property setup
             checkIn,
             checkOut,
-            guests,
-            rooms: roomCount
+            guests
         });
         
         // Map API response to UI model
@@ -283,7 +282,7 @@ const PublicSite: React.FC = () => {
       setWantsParking(false);
       setRulesAccepted(false);
 
-    const rulesText = getLocalizedText(profile?.contentJson?.i18n?.rules?.content, profile?.contentJson?.rules?.content || profile?.policies || "");
+    const rulesText = getLocalizedText(profile?.contentJson?.i18n?.rules?.content, profile?.contentJson?.rules?.content || "");
       const shouldShowRules = profile?.contentJson?.rules?.show !== false && rulesText.trim().length > 0;
       if (shouldShowRules) {
           setShowRulesModal(true);
@@ -299,8 +298,16 @@ const PublicSite: React.FC = () => {
   };
 
   const goToPayment = () => {
-       if (!guestDetails.firstName || !guestDetails.lastName || !guestDetails.email || !guestDetails.phone) {
+      if (!guestDetails.firstName || !guestDetails.lastName || !guestDetails.email || !guestDetails.phone) {
           alert("Please fill in all guest details.");
+          return;
+      }
+      if (!isValidEmail(guestDetails.email)) {
+          alert("Please enter a valid email address.");
+          return;
+      }
+      if (!isValidPhone(guestDetails.phone)) {
+          alert("Please enter a valid phone number (digits only, min 7).");
           return;
       }
       setBookingStep(2);
@@ -493,6 +500,10 @@ const PublicSite: React.FC = () => {
       return null;
   };
 
+  // Email and phone validation helpers
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isValidPhone = (phone: string) => /^[+]?\d{7,16}$/.test(phone.replace(/\s+/g, ""));
+
   return (
     <div className="font-sans text-gray-800 min-h-screen flex flex-col">
       {showRulesModal && (
@@ -502,7 +513,7 @@ const PublicSite: React.FC = () => {
                       {getLocalizedText(profile?.contentJson?.i18n?.rules?.title, profile?.contentJson?.rules?.title || t("rules_title"))}
                   </h3>
                   <div className="text-sm text-gray-600 whitespace-pre-line max-h-64 overflow-auto border rounded p-3 bg-gray-50">
-                      {getLocalizedText(profile?.contentJson?.i18n?.rules?.content, profile?.contentJson?.rules?.content || profile?.policies || "")}
+                      {getLocalizedText(profile?.contentJson?.i18n?.rules?.content, profile?.contentJson?.rules?.content || "")}
                   </div>
                   <label className="flex items-center gap-2 mt-4 text-sm text-gray-700">
                       <input
@@ -953,9 +964,9 @@ const PublicSite: React.FC = () => {
                             {bookingStep === 2 && (
                                 <div className="space-y-6 animate-fade-in-up">
                                     <div className="bg-gray-50 p-4 rounded text-center border border-gray-200">
-                                         <p className="text-gray-500 text-sm uppercase tracking-wide">Total to Pay</p>
-                                         <p className="text-3xl font-bold" style={{ color: profile.primaryColor }}>
-                                             €{(() => {
+                                        <p className="text-gray-500 text-sm uppercase tracking-wide">Total to Pay</p>
+                                        <p className="text-3xl font-bold" style={{ color: profile.primaryColor }}>
+                                            €{(() => {
                                                     const start = new Date(checkIn).getTime();
                                                     const end = new Date(checkOut).getTime();
                                                     const nights = Math.max(1, Math.ceil((end - start) / (86400000)));
@@ -964,42 +975,17 @@ const PublicSite: React.FC = () => {
                                                     const parking = wantsParking ? (20 * nights) : 0;
                                                     return base + breakfast + parking;
                                                 })()}
-                                         </p>
+                                        </p>
                                     </div>
-
-                                    {/* Payment Section (Mock) */}
                                     <div className="p-4 bg-white rounded border border-gray-200 shadow-sm relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-0.5 z-10">
-                                            SIMULATION MODE
-                                        </div>
                                         <h4 className="font-bold text-sm uppercase mb-4 text-gray-700 flex items-center gap-2">
-                                        <FaCreditCard /> Card Details (No Live Charge)
+                                            <FaCreditCard /> Secure Card Payment
                                         </h4>
-                                        <div className="space-y-4 opacity-75">
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Card Number (Any Mock Number)</label>
-                                                <div className="relative">
-                                                    <input className="border p-2 pl-10 w-full rounded outline-none focus:border-primary-500 font-mono text-sm" placeholder="0000 0000 0000 0000" />
-                                                    <div className="absolute left-3 top-2.5 text-gray-400">💳</div>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-4">
-                                                <div className="flex-1">
-                                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Expiry</label>
-                                                    <input className="border p-2 w-full rounded outline-none focus:border-primary-500 font-mono text-sm" placeholder="MM/YY" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">CVC</label>
-                                                    <input className="border p-2 w-full rounded outline-none focus:border-primary-500 font-mono text-sm" type="password" placeholder="123" />
-                                                </div>
-                                            </div>
-                                            <p className="text-[10px] text-gray-400 mt-2 text-center flex items-center justify-center gap-1">
-                                                <span className="w-2 h-2 rounded-full bg-green-500"></span> 
-                                                Secure Payment Encryption
-                                            </p>
+                                        <div className="space-y-2 text-gray-600 text-sm">
+                                            <p>Click the button below to pay securely with your card via Stripe.</p>
+                                            <p>You will be redirected to a secure payment page.</p>
                                         </div>
                                     </div>
-
                                     <div className="flex gap-3">
                                         <button 
                                             onClick={() => setBookingStep(1)}
