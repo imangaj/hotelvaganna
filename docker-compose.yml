@@ -6,7 +6,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: pms-backend
     ports:
       - "5000:5000"
@@ -15,7 +15,7 @@ services:
       JWT_SECRET: "your_jwt_secret_key_here_change_in_production"
       JWT_EXPIRE: "7d"
       PORT: 5000
-      NODE_ENV: development
+      NODE_ENV: production
       HOTEL_EMAIL: "hotel.valganna@libero.it"
       SMTP_HOST: "smtp.libero.it"
       SMTP_PORT: 465
@@ -23,9 +23,7 @@ services:
       SMTP_PASS: "hotelvalganna123"
       SMTP_FROM: "hotel.valganna@libero.it"
     volumes:
-      - ./backend/src:/app/src
       - ./backend/prisma:/app/prisma # Persist SQLite DB
-    command: npm run dev
 
   frontend:
     build:
