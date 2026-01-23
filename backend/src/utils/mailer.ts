@@ -13,6 +13,12 @@ interface BookingEmailPayload {
   source?: string;
 }
 
+interface PasswordResetEmailPayload {
+  email: string;
+  resetToken: string;
+  frontendUrl: string;
+}
+
 const getTransporter = () => {
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined;
@@ -73,4 +79,42 @@ export const sendBookingEmails = async (payload: BookingEmailPayload) => {
     subject: subjectHotel,
     html
   });
+};
+
+export const sendPasswordResetEmail = async (payload: PasswordResetEmailPayload): Promise<boolean> => {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.warn("SMTP not configured. Password reset email not sent.");
+    return false;
+  }
+
+  const from = process.env.SMTP_FROM || "no-reply@hotel.local";
+  const resetUrl = `${payload.frontendUrl}/reset-password?token=${payload.resetToken}`;
+  
+  const subject = "Password Reset Request";
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+      <h2>Password Reset Request</h2>
+      <p>You have requested to reset your password for your guest account.</p>
+      <p>Please click the link below to reset your password:</p>
+      <p><a href="${resetUrl}" style="color: #2E5D4B; font-weight: bold;">Reset Password</a></p>
+      <p>Or copy and paste this URL into your browser:</p>
+      <p style="color: #666; word-break: break-all;">${resetUrl}</p>
+      <p>This link will expire in 1 hour.</p>
+      <p>If you did not request this password reset, please ignore this email.</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from,
+      to: payload.email,
+      subject,
+      html
+    });
+    return true;
+  } catch (error) {
+    console.error("Failed to send password reset email:", error);
+    return false;
+  }
 };

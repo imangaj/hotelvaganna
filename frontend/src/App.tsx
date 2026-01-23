@@ -3,6 +3,7 @@ import AuthPage from "./components/AuthPage.tsx";
 import AdminDashboard from "./components/AdminDashboard.tsx";
 import PublicSite from "./public/PublicSite.tsx";
 import GuestPortal from "./public/GuestPortal.tsx";
+import ResetPassword from "./public/ResetPassword.tsx";
 import "./styles/global.css";
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
   const appMode = import.meta.env.VITE_APP_MODE as "public" | "admin" | undefined;
   const isAdminRoute = appMode === "admin" || (!appMode && window.location.pathname.startsWith("/admin"));
   const isGuestRoute = appMode === "guest" || (!appMode && window.location.pathname.startsWith("/guest"));
+  const isResetPasswordRoute = !appMode && window.location.pathname.startsWith("/reset-password");
   const isPublicRoute = appMode === "public" || !appMode;
 
   if (isLoading && isAdminRoute) {
@@ -42,6 +44,8 @@ function App() {
         ) : (
           <AuthPage onAuthSuccess={handleAuthSuccess} />
         )
+      ) : isResetPasswordRoute ? (
+        <ResetPassword />
       ) : isGuestRoute ? (
         <GuestPortal />
       ) : isPublicRoute ? (

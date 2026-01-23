@@ -125,6 +125,10 @@ export const guestAuthAPI = {
     apiClient.get("/guest-auth/me", {
       headers: { Authorization: `Bearer ${token}` },
     }),
+  forgotPassword: (data: { email: string }) =>
+    apiClient.post("/guest-auth/forgot-password", data),
+  resetPassword: (data: { token: string; newPassword: string }) =>
+    apiClient.post("/guest-auth/reset-password", data),
 };
 
 export const paymentsAPI = {
