@@ -29,6 +29,11 @@ const GuestPortal: React.FC = () => {
   const [token, setToken] = useState<string | null>(localStorage.getItem("guestToken"));
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
+  const [forgotPasswordError, setForgotPasswordError] = useState("");
+  const [devResetLink, setDevResetLink] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -96,6 +101,30 @@ const GuestPortal: React.FC = () => {
     localStorage.removeItem("guestToken");
     setToken(null);
     setBookings([]);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordError("");
+    setForgotPasswordMessage("");
+    setDevResetLink("");
+
+    if (!forgotPasswordEmail) {
+      setForgotPasswordError("Email is required.");
+      return;
+    }
+
+    try {
+      const res = await guestAuthAPI.forgotPassword({ email: forgotPasswordEmail });
+      setForgotPasswordMessage(res.data?.message || "Reset link sent!");
+      
+      // Show DEV mode link if provided
+      if (res.data?.devMode && res.data?.resetLink) {
+        setDevResetLink(res.data.resetLink);
+      }
+    } catch (error: any) {
+      setForgotPasswordError(error.response?.data?.message || "Failed to send reset link.");
+    }
   };
 
   const formatDate = (dateStr: string) =>
@@ -176,7 +205,67 @@ const GuestPortal: React.FC = () => {
 
       <main className="max-w-5xl mx-auto px-6 py-10">
         {!isLoggedIn ? (
-          <div className="bg-white p-6 rounded-lg shadow-sm max-w-md mx-auto">
+          showForgotPassword ? (
+            <div className="bg-white p-6 rounded-lg shadow-sm max-w-md mx-auto">
+              <button
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotPasswordEmail("");
+                  setForgotPasswordMessage("");
+                  setForgotPasswordError("");
+                  setDevResetLink("");
+                }}
+                className="text-sm text-gray-600 hover:text-gray-900 mb-4"
+              >
+                ← Back to login
+              </button>
+              <h2 className="text-2xl font-bold mb-2">Forgot Password</h2>
+              <p className="text-sm text-gray-500 mb-6">
+                Enter your email address and we'll send you a link to reset your password.
+              </p>
+
+              {!forgotPasswordMessage ? (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Email</label>
+                    <input
+                      type="email"
+                      className="w-full border rounded px-3 py-2"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    />
+                  </div>
+                  {forgotPasswordError && <div className="text-red-600 text-sm">{forgotPasswordError}</div>}
+                  <button
+                    type="submit"
+                    className="w-full py-2 rounded text-white font-semibold"
+                    style={{ background: profile?.primaryColor || "#2E5D4B" }}
+                  >
+                    Send Reset Link
+                  </button>
+                </form>
+              ) : (
+                <div>
+                  <div className="bg-green-50 border border-green-200 rounded p-4 mb-4">
+                    <p className="text-green-800 text-sm">{forgotPasswordMessage}</p>
+                  </div>
+                  {devResetLink && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+                      <p className="text-yellow-900 text-xs font-semibold mb-2">DEV MODE - Email not configured</p>
+                      <p className="text-yellow-800 text-xs mb-2">Use this link to reset your password:</p>
+                      <a
+                        href={devResetLink}
+                        className="text-blue-600 hover:text-blue-800 text-xs break-all underline"
+                      >
+                        {devResetLink}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white p-6 rounded-lg shadow-sm max-w-md mx-auto">
             <h2 className="text-2xl font-bold mb-2">Guest Login</h2>
             <p className="text-sm text-gray-500 mb-6">
               Use the same email you used for your reservation. You can book without an account and create one later.
@@ -218,6 +307,17 @@ const GuestPortal: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+              {authMode === "login" && (
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-sm text-gray-600 hover:text-gray-900"
+                  >
+                    Forgot your password?
+                  </button>
+                </div>
+              )}
               {authError && <div className="text-red-600 text-sm">{authError}</div>}
               <button
                 type="submit"
@@ -228,6 +328,7 @@ const GuestPortal: React.FC = () => {
               </button>
             </form>
           </div>
+          )
         ) : (
           <div>
             <div className="flex items-center justify-between mb-6">
