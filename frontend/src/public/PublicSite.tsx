@@ -639,7 +639,7 @@ const PublicSite: React.FC = () => {
                                   <div className="flex justify-between items-end border-t pt-4">
                                       <div>
                                           <span className="text-xs text-gray-500 block uppercase tracking-wide">{t('room_price_total')}</span>
-                                          <span className="text-2xl font-bold" style={{ color: profile.primaryColor }}>${group.basePrice}</span>
+                                          <span className="text-2xl font-bold" style={{ color: profile.primaryColor }}>€{group.basePrice}</span>
                                           {/* <span className="text-xs text-gray-400">/night</span> Removed per-night label since price is total */}
                                       </div>
                                       <button 
@@ -759,7 +759,7 @@ const PublicSite: React.FC = () => {
                                 </div>
                                 <div className="flex justify-between text-base font-bold pt-2 border-t">
                                     <span>Total Paid</span>
-                                    <span>${confirmation ? confirmation.totalPrice.toFixed(2) : "0.00"}</span>
+                                    <span>€{confirmation ? confirmation.totalPrice.toFixed(2) : "0.00"}</span>
                                 </div>
                             </div>
 
@@ -811,7 +811,7 @@ const PublicSite: React.FC = () => {
                                                         <input type="checkbox" checked={wantsBreakfast} onChange={e => setWantsBreakfast(e.target.checked)} className="h-4 w-4 text-primary-600 rounded" />
                                                         <span className="font-medium">Add Breakfast</span>
                                                     </div>
-                                                    <span className="text-gray-500 text-xs">+$7/person/night</span>
+                                                    <span className="text-gray-500 text-xs">+€7/person/night</span>
                                                 </label>
                                             )}
 
@@ -820,14 +820,14 @@ const PublicSite: React.FC = () => {
                                                     <input type="checkbox" checked={wantsParking} onChange={e => setWantsParking(e.target.checked)} className="h-4 w-4 text-primary-600 rounded" />
                                                     <span className="font-medium">Request Parking</span>
                                                 </div>
-                                                <span className="text-gray-500 text-xs">+$20/night</span>
+                                                <span className="text-gray-500 text-xs">+€20/night</span>
                                             </label>
                                         </div>
 
                                         <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center text-lg font-bold" style={{ color: profile.primaryColor }}>
                                             <span>Total Price:</span>
                                             <span>
-                                                ${(() => {
+                                                €{(() => {
                                                     const start = new Date(checkIn).getTime();
                                                     const end = new Date(checkOut).getTime();
                                                     const nights = Math.max(1, Math.ceil((end - start) / (86400000)));
@@ -883,7 +883,7 @@ const PublicSite: React.FC = () => {
                                     <div className="bg-gray-50 p-4 rounded text-center border border-gray-200">
                                          <p className="text-gray-500 text-sm uppercase tracking-wide">Total to Pay</p>
                                          <p className="text-3xl font-bold" style={{ color: profile.primaryColor }}>
-                                             ${(() => {
+                                             €{(() => {
                                                     const start = new Date(checkIn).getTime();
                                                     const end = new Date(checkOut).getTime();
                                                     const nights = Math.max(1, Math.ceil((end - start) / (86400000)));
