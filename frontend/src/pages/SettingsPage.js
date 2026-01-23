@@ -1,11 +1,14 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { hotelProfileAPI, userAPI } from "../api/endpoints";
+import { useLanguage } from "../contexts/LanguageContext";
+import { Language } from "../i18n/translations";
 import RoomsSettings from "../components/RoomsSettings";
 import PropertiesPage from "./PropertiesPage";
 const SettingsPage = () => {
+    const { language } = useLanguage();
     const [activeTab, setActiveTab] = useState("general");
     const [loading, setLoading] = useState(false);
+    const [contentLanguage, setContentLanguage] = useState(language);
     // Staff Management State
     const [users, setUsers] = useState([]);
     const [loadingStaff, setLoadingStaff] = useState(false);
@@ -67,6 +70,7 @@ const SettingsPage = () => {
             about: { show: true, title: "", content: "" },
             features: { show: true, showAmenities: true },
             map: { show: true, embedUrl: "" },
+            rules: { show: true, title: "Hotel Rules", content: "" },
             services: []
         }
     });
@@ -78,17 +82,86 @@ const SettingsPage = () => {
     useEffect(() => {
         loadHotelProfile();
     }, []);
+    useEffect(() => {
+        setContentLanguage(language);
+    }, [language]);
+    useEffect(() => {
+        setHotelProfile((prev) => {
+            const i18n = prev.contentJson?.i18n;
+            if (!i18n)
+                return prev;
+            const pick = (val, fallback = "") => (val?.[contentLanguage] || val?.en || fallback || "");
+            return {
+                ...prev,
+                websiteTitle: pick(i18n.websiteTitle, prev.websiteTitle),
+                footerText: pick(i18n.footerText, prev.footerText),
+                amenities: pick(i18n.amenities, prev.amenities),
+                description: pick(i18n.about?.content, prev.description),
+                policies: pick(i18n.rules?.content, prev.policies),
+                contentJson: {
+                    ...prev.contentJson,
+                    hero: {
+                        ...prev.contentJson?.hero,
+                        title: pick(i18n.hero?.title, prev.contentJson?.hero?.title),
+                        subtitle: pick(i18n.hero?.subtitle, prev.contentJson?.hero?.subtitle),
+                    },
+                    about: {
+                        ...prev.contentJson?.about,
+                        title: pick(i18n.about?.title, prev.contentJson?.about?.title),
+                        content: pick(i18n.about?.content, prev.contentJson?.about?.content),
+                    },
+                    rules: {
+                        ...prev.contentJson?.rules,
+                        title: pick(i18n.rules?.title, prev.contentJson?.rules?.title),
+                        content: pick(i18n.rules?.content, prev.contentJson?.rules?.content),
+                    },
+                },
+            };
+        });
+    }, [contentLanguage]);
+    const ensureLocalized = (value) => {
+        if (!value)
+            return { en: "", it: "", zh: "" };
+        if (typeof value === "string")
+            return { en: value, it: value, zh: value };
+        return {
+            en: value.en || "",
+            it: value.it || "",
+            zh: value.zh || "",
+        };
+    };
     const loadHotelProfile = async () => {
         try {
             const res = await hotelProfileAPI.get();
             if (res.data) {
+                const rawContent = res.data.contentJson || {};
+                const rawI18n = rawContent.i18n || {};
+                const normalizedI18n = {
+                    websiteTitle: ensureLocalized(rawI18n.websiteTitle || res.data.websiteTitle),
+                    footerText: ensureLocalized(rawI18n.footerText || res.data.footerText),
+                    amenities: ensureLocalized(rawI18n.amenities || res.data.amenities),
+                    hero: {
+                        title: ensureLocalized(rawI18n.hero?.title || rawContent.hero?.title),
+                        subtitle: ensureLocalized(rawI18n.hero?.subtitle || rawContent.hero?.subtitle),
+                    },
+                    about: {
+                        title: ensureLocalized(rawI18n.about?.title || rawContent.about?.title),
+                        content: ensureLocalized(rawI18n.about?.content || rawContent.about?.content || res.data.description),
+                    },
+                    rules: {
+                        title: ensureLocalized(rawI18n.rules?.title || rawContent.rules?.title || "Hotel Rules"),
+                        content: ensureLocalized(rawI18n.rules?.content || rawContent.rules?.content || res.data.policies),
+                    },
+                };
                 // Ensure contentJson structure exists even if DB has partial data
                 const mergedContent = {
-                    hero: { show: true, title: "", subtitle: "", image: "", ...res.data.contentJson?.hero },
-                    about: { show: true, title: "", content: "", ...res.data.contentJson?.about },
-                    features: { show: true, showAmenities: true, ...res.data.contentJson?.features },
-                    map: { show: true, embedUrl: "", ...res.data.contentJson?.map },
-                    services: res.data.contentJson?.services || []
+                    hero: { show: true, title: "", subtitle: "", image: "", ...rawContent.hero },
+                    about: { show: true, title: "", content: "", ...rawContent.about },
+                    features: { show: true, showAmenities: true, ...rawContent.features },
+                    map: { show: true, embedUrl: "", ...rawContent.map },
+                    rules: { show: true, title: "Hotel Rules", content: "", ...rawContent.rules },
+                    services: rawContent.services || [],
+                    i18n: normalizedI18n,
                 };
                 setHotelProfile({ ...res.data, contentJson: mergedContent });
             }
@@ -97,10 +170,61 @@ const SettingsPage = () => {
             console.error("Failed to load profile", err);
         }
     };
+    const getLocalizedValue = (value) => value?.[contentLanguage] || "";
+    const setLocalizedValue = (path, value) => {
+        setHotelProfile((prev) => {
+            const contentJson = prev.contentJson || {};
+            const i18n = contentJson.i18n || {};
+            const updated = { ...i18n };
+            let cursor = updated;
+            for (let i = 0; i < path.length - 1; i++) {
+                const key = path[i];
+                cursor[key] = cursor[key] || {};
+                cursor = cursor[key];
+            }
+            const lastKey = path[path.length - 1];
+            cursor[lastKey] = { ...(cursor[lastKey] || {}), [contentLanguage]: value };
+            return {
+                ...prev,
+                contentJson: {
+                    ...contentJson,
+                    i18n: updated,
+                },
+            };
+        });
+    };
     const handleSaveWebsiteConfig = async () => {
         setLoading(true);
         try {
-            await hotelProfileAPI.update(hotelProfile);
+            const i18n = hotelProfile.contentJson?.i18n || {};
+            const updatedI18n = {
+                ...i18n,
+                websiteTitle: { ...(i18n.websiteTitle || {}), [contentLanguage]: hotelProfile.websiteTitle || "" },
+                footerText: { ...(i18n.footerText || {}), [contentLanguage]: hotelProfile.footerText || "" },
+                amenities: { ...(i18n.amenities || {}), [contentLanguage]: hotelProfile.amenities || "" },
+                hero: {
+                    title: { ...(i18n.hero?.title || {}), [contentLanguage]: hotelProfile.contentJson?.hero?.title || "" },
+                    subtitle: { ...(i18n.hero?.subtitle || {}), [contentLanguage]: hotelProfile.contentJson?.hero?.subtitle || "" },
+                },
+                about: {
+                    title: { ...(i18n.about?.title || {}), [contentLanguage]: hotelProfile.contentJson?.about?.title || "" },
+                    content: { ...(i18n.about?.content || {}), [contentLanguage]: hotelProfile.contentJson?.about?.content || "" },
+                },
+                rules: {
+                    title: { ...(i18n.rules?.title || {}), [contentLanguage]: hotelProfile.contentJson?.rules?.title || "" },
+                    content: { ...(i18n.rules?.content || {}), [contentLanguage]: hotelProfile.contentJson?.rules?.content || "" },
+                },
+            };
+            const payload = {
+                ...hotelProfile,
+                websiteTitle: updatedI18n.websiteTitle?.en || hotelProfile.websiteTitle,
+                footerText: updatedI18n.footerText?.en || hotelProfile.footerText,
+                amenities: updatedI18n.amenities?.en || hotelProfile.amenities,
+                description: updatedI18n.about?.content?.en || hotelProfile.description,
+                policies: updatedI18n.rules?.content?.en || hotelProfile.policies,
+                contentJson: { ...hotelProfile.contentJson, i18n: updatedI18n },
+            };
+            await hotelProfileAPI.update(payload);
             alert("Website configuration saved successfully!");
         }
         catch (err) {

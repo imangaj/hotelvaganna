@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { propertyAPI, hotelProfileAPI, userAPI } from "../api/endpoints";
 import { useLanguage } from "../contexts/LanguageContext";
+import { Language } from "../i18n/translations";
 import RoomsSettings from "../components/RoomsSettings";
 import PropertiesPage from "./PropertiesPage";
 
@@ -13,6 +14,8 @@ interface User {
   role: "ADMIN" | "MANAGER" | "RECEPTION" | "CLEANER";
   isActive: boolean;
 }
+
+type LocalizedText = { en?: string; it?: string; zh?: string };
 
 interface HotelProfileData {
   name: string;
@@ -45,8 +48,16 @@ interface HotelProfileData {
     about?: { title: string; content: string; show: boolean };
     features?: { show: boolean; showAmenities?: boolean };
     map?: { show: boolean; embedUrl: string };
-        rules?: { show: boolean; title: string; content: string };
+                rules?: { show: boolean; title: string; content: string };
     services?: { icon: string; title: string; text: string }[];
+        i18n?: {
+                websiteTitle?: LocalizedText;
+                footerText?: LocalizedText;
+                amenities?: LocalizedText;
+                hero?: { title?: LocalizedText; subtitle?: LocalizedText };
+                about?: { title?: LocalizedText; content?: LocalizedText };
+                rules?: { title?: LocalizedText; content?: LocalizedText };
+        };
   }
 }
 
@@ -62,10 +73,11 @@ interface NotificationSettings {
 }
 
 const SettingsPage: React.FC = () => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<"general" | "website" | "notifications" | "staff" | "rooms" | "properties">("general");
     const [loading, setLoading] = useState(false);
     const [currentUserRole, setCurrentUserRole] = useState<string>("ADMIN");
+    const [contentLanguage, setContentLanguage] = useState<Language>(language);
 
     // Staff Management State
     const [users, setUsers] = useState<User[]>([]);
@@ -172,18 +184,50 @@ const SettingsPage: React.FC = () => {
         loadHotelProfile();
     }, []);
 
+    const ensureLocalized = (value: any): LocalizedText => {
+        if (!value) return { en: "", it: "", zh: "" };
+        if (typeof value === "string") return { en: value, it: value, zh: value };
+        return {
+            en: value.en || "",
+            it: value.it || "",
+            zh: value.zh || "",
+        };
+    };
+
     const loadHotelProfile = async () => {
         try {
             const res = await hotelProfileAPI.get();
             if (res.data) {
+                const rawContent = res.data.contentJson || {};
+                const rawI18n = rawContent.i18n || {};
+
+                const normalizedI18n = {
+                    websiteTitle: ensureLocalized(rawI18n.websiteTitle || res.data.websiteTitle),
+                    footerText: ensureLocalized(rawI18n.footerText || res.data.footerText),
+                    amenities: ensureLocalized(rawI18n.amenities || res.data.amenities),
+                    hero: {
+                        title: ensureLocalized(rawI18n.hero?.title || rawContent.hero?.title),
+                        subtitle: ensureLocalized(rawI18n.hero?.subtitle || rawContent.hero?.subtitle),
+                    },
+                    about: {
+                        title: ensureLocalized(rawI18n.about?.title || rawContent.about?.title),
+                        content: ensureLocalized(rawI18n.about?.content || rawContent.about?.content || res.data.description),
+                    },
+                    rules: {
+                        title: ensureLocalized(rawI18n.rules?.title || rawContent.rules?.title || "Hotel Rules"),
+                        content: ensureLocalized(rawI18n.rules?.content || rawContent.rules?.content || res.data.policies),
+                    },
+                };
+
                 // Ensure contentJson structure exists even if DB has partial data
                 const mergedContent = {
-                    hero: { show: true, title: "", subtitle: "", image: "", ...res.data.contentJson?.hero },
-                    about: { show: true, title: "", content: "", ...res.data.contentJson?.about },
-                    features: { show: true, showAmenities: true, ...res.data.contentJson?.features },
-                    map: { show: true, embedUrl: "", ...res.data.contentJson?.map },
-                    rules: { show: true, title: "Hotel Rules", content: "", ...res.data.contentJson?.rules },
-                    services: res.data.contentJson?.services || []
+                    hero: { show: true, title: "", subtitle: "", image: "", ...rawContent.hero },
+                    about: { show: true, title: "", content: "", ...rawContent.about },
+                    features: { show: true, showAmenities: true, ...rawContent.features },
+                    map: { show: true, embedUrl: "", ...rawContent.map },
+                    rules: { show: true, title: "Hotel Rules", content: "", ...rawContent.rules },
+                    services: rawContent.services || [],
+                    i18n: normalizedI18n,
                 };
                 setHotelProfile({ ...res.data, contentJson: mergedContent });
             }
@@ -195,7 +239,17 @@ const SettingsPage: React.FC = () => {
     const handleSaveWebsiteConfig = async () => {
         setLoading(true);
         try {
-            await hotelProfileAPI.update(hotelProfile);
+            const i18n = hotelProfile.contentJson?.i18n || {};
+            const payload = {
+                ...hotelProfile,
+                websiteTitle: i18n.websiteTitle?.en || hotelProfile.websiteTitle,
+                footerText: i18n.footerText?.en || hotelProfile.footerText,
+                amenities: i18n.amenities?.en || hotelProfile.amenities,
+                description: i18n.about?.content?.en || hotelProfile.description,
+                policies: i18n.rules?.content?.en || hotelProfile.policies,
+                contentJson: { ...hotelProfile.contentJson, i18n },
+            };
+            await hotelProfileAPI.update(payload);
             alert("Website configuration saved successfully!");
         } catch (err) {
             console.error(err);
@@ -203,6 +257,32 @@ const SettingsPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const getLocalizedValue = (value?: LocalizedText) => value?.[contentLanguage] || "";
+    const setLocalizedValue = (path: (keyof NonNullable<HotelProfileData["contentJson"]> | string)[], value: string) => {
+        setHotelProfile((prev) => {
+            const contentJson = prev.contentJson || {};
+            const i18n = contentJson.i18n || {};
+            const updated = { ...i18n } as any;
+
+            let cursor = updated;
+            for (let i = 0; i < path.length - 1; i++) {
+                const key = path[i] as string;
+                cursor[key] = cursor[key] || {};
+                cursor = cursor[key];
+            }
+            const lastKey = path[path.length - 1] as string;
+            cursor[lastKey] = { ...(cursor[lastKey] || {}), [contentLanguage]: value };
+
+            return {
+                ...prev,
+                contentJson: {
+                    ...contentJson,
+                    i18n: updated,
+                },
+            };
+        });
     };
 
   return (
@@ -301,10 +381,26 @@ const SettingsPage: React.FC = () => {
                     <h3 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
                         <span>🎨</span> Brand Identity
                     </h3>
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Content Language</label>
+                        <select
+                            className="border p-2 rounded"
+                            value={contentLanguage}
+                            onChange={(e) => setContentLanguage(e.target.value as Language)}
+                        >
+                            <option value="en">English</option>
+                            <option value="it">Italiano</option>
+                            <option value="zh">中文</option>
+                        </select>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Website Title</label>
-                            <input className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none" value={hotelProfile.websiteTitle || ""} onChange={e => setHotelProfile({...hotelProfile, websiteTitle: e.target.value})} />
+                            <input
+                                className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none"
+                                value={getLocalizedValue(hotelProfile.contentJson?.i18n?.websiteTitle)}
+                                onChange={e => setLocalizedValue(["websiteTitle"], e.target.value)}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
@@ -343,11 +439,19 @@ const SettingsPage: React.FC = () => {
                         <div className="grid grid-cols-1 gap-4">
                              <div>
                                  <label className="block text-sm font-medium text-gray-700 mb-1">Main Title</label>
-                                 <input className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500" value={hotelProfile.contentJson.hero?.title} onChange={e => setHotelProfile({...hotelProfile, contentJson: {...hotelProfile.contentJson!, hero: {...hotelProfile.contentJson!.hero!, title: e.target.value}}})} />
+                                 <input
+                                    className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
+                                    value={getLocalizedValue(hotelProfile.contentJson?.i18n?.hero?.title)}
+                                    onChange={e => setLocalizedValue(["hero", "title"], e.target.value)}
+                                 />
                              </div>
                              <div>
                                  <label className="block text-sm font-medium text-gray-700 mb-1">Subtitle</label>
-                                 <input className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500" value={hotelProfile.contentJson.hero?.subtitle} onChange={e => setHotelProfile({...hotelProfile, contentJson: {...hotelProfile.contentJson!, hero: {...hotelProfile.contentJson!.hero!, subtitle: e.target.value}}})} />
+                                 <input
+                                    className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
+                                    value={getLocalizedValue(hotelProfile.contentJson?.i18n?.hero?.subtitle)}
+                                    onChange={e => setLocalizedValue(["hero", "subtitle"], e.target.value)}
+                                 />
                              </div>
                              <div>
                                  <label className="block text-sm font-medium text-gray-700 mb-1">Background Image URL</label>
@@ -376,11 +480,20 @@ const SettingsPage: React.FC = () => {
                         <div className="grid grid-cols-1 gap-4">
                              <div>
                                  <label className="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
-                                 <input className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500" value={hotelProfile.contentJson.about?.title} onChange={e => setHotelProfile({...hotelProfile, contentJson: {...hotelProfile.contentJson!, about: {...hotelProfile.contentJson!.about!, title: e.target.value}}})} />
+                                 <input
+                                    className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
+                                    value={getLocalizedValue(hotelProfile.contentJson?.i18n?.about?.title)}
+                                    onChange={e => setLocalizedValue(["about", "title"], e.target.value)}
+                                 />
                              </div>
                              <div>
                                  <label className="block text-sm font-medium text-gray-700 mb-1">Content Text</label>
-                                 <textarea rows={5} className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500" value={hotelProfile.contentJson.about?.content} onChange={e => setHotelProfile({...hotelProfile, contentJson: {...hotelProfile.contentJson!, about: {...hotelProfile.contentJson!.about!, content: e.target.value}}})} />
+                                 <textarea
+                                    rows={5}
+                                    className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
+                                    value={getLocalizedValue(hotelProfile.contentJson?.i18n?.about?.content)}
+                                    onChange={e => setLocalizedValue(["about", "content"], e.target.value)}
+                                 />
                              </div>
                         </div>
                     )}
@@ -412,7 +525,13 @@ const SettingsPage: React.FC = () => {
                     <h3 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
                         <span>✨</span> Amenities List
                     </h3>
-                    <textarea rows={3} className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500" placeholder="e.g. Free Wi-Fi, Pool, Spa, Ocean View" value={hotelProfile.amenities || ""} onChange={e => setHotelProfile({...hotelProfile, amenities: e.target.value})} />
+                    <textarea
+                        rows={3}
+                        className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
+                        placeholder="e.g. Free Wi-Fi, Pool, Spa, Ocean View"
+                        value={getLocalizedValue(hotelProfile.contentJson?.i18n?.amenities)}
+                        onChange={e => setLocalizedValue(["amenities"], e.target.value)}
+                    />
                  </div>
 
                  {/* Rules Popup */}
@@ -443,14 +562,8 @@ const SettingsPage: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Popup Title</label>
                                 <input
                                     className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
-                                    value={hotelProfile.contentJson.rules?.title}
-                                    onChange={e => setHotelProfile({
-                                        ...hotelProfile,
-                                        contentJson: {
-                                            ...hotelProfile.contentJson!,
-                                            rules: { ...hotelProfile.contentJson!.rules!, title: e.target.value }
-                                        }
-                                    })}
+                                    value={getLocalizedValue(hotelProfile.contentJson?.i18n?.rules?.title)}
+                                    onChange={e => setLocalizedValue(["rules", "title"], e.target.value)}
                                 />
                             </div>
                             <div>
@@ -459,14 +572,8 @@ const SettingsPage: React.FC = () => {
                                     rows={6}
                                     className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500"
                                     placeholder="Write the hotel rules shown before payment..."
-                                    value={hotelProfile.contentJson.rules?.content}
-                                    onChange={e => setHotelProfile({
-                                        ...hotelProfile,
-                                        contentJson: {
-                                            ...hotelProfile.contentJson!,
-                                            rules: { ...hotelProfile.contentJson!.rules!, content: e.target.value }
-                                        }
-                                    })}
+                                    value={getLocalizedValue(hotelProfile.contentJson?.i18n?.rules?.content)}
+                                    onChange={e => setLocalizedValue(["rules", "content"], e.target.value)}
                                 />
                             </div>
                         </div>

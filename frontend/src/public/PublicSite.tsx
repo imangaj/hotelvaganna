@@ -6,6 +6,7 @@ import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, F
 import { MdSingleBed, MdKingBed, MdBed } from "react-icons/md";
 import LanguageSelector from "../components/LanguageSelector";
 import { useLanguage } from "../contexts/LanguageContext";
+import { Language } from "../i18n/translations";
 
 // --- Interfaces (matching SettingsPage) ---
 interface HotelProfileData {
@@ -33,6 +34,14 @@ interface HotelProfileData {
     map?: { show: boolean; embedUrl: string };
         rules?: { show: boolean; title: string; content: string };
     services?: { icon: string; title: string; text: string }[];
+        i18n?: {
+                websiteTitle?: { en?: string; it?: string; zh?: string };
+                footerText?: { en?: string; it?: string; zh?: string };
+                amenities?: { en?: string; it?: string; zh?: string };
+                hero?: { title?: { en?: string; it?: string; zh?: string }; subtitle?: { en?: string; it?: string; zh?: string } };
+                about?: { title?: { en?: string; it?: string; zh?: string }; content?: { en?: string; it?: string; zh?: string } };
+                rules?: { title?: { en?: string; it?: string; zh?: string }; content?: { en?: string; it?: string; zh?: string } };
+        };
   }
 }
 
@@ -50,7 +59,7 @@ interface Room {
 }
 
 const PublicSite: React.FC = () => {
-  const { t } = useLanguage();
+    const { t, language } = useLanguage();
   const [profile, setProfile] = useState<HotelProfileData | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,7 +193,7 @@ const PublicSite: React.FC = () => {
       setWantsParking(false);
       setRulesAccepted(false);
 
-      const rulesText = profile?.contentJson?.rules?.content || profile?.policies || "";
+    const rulesText = getLocalizedText(profile?.contentJson?.i18n?.rules?.content, profile?.contentJson?.rules?.content || profile?.policies || "");
       const shouldShowRules = profile?.contentJson?.rules?.show !== false && rulesText.trim().length > 0;
       if (shouldShowRules) {
           setShowRulesModal(true);
@@ -305,6 +314,13 @@ const PublicSite: React.FC = () => {
   if (loading) return <div className="h-screen flex items-center justify-center text-primary-900">Loading experience...</div>;
   if (!profile) return <div>Failed to load property profile.</div>;
 
+    const getLocalizedText = (value: any, fallback = "") => {
+        if (!value) return fallback;
+        if (typeof value === "string") return value;
+        const lang = language as Language;
+        return value[lang] || value.en || fallback;
+    };
+
   // STRICT IMAGE LOGIC: Use local banner if present, else fallback
   let heroImage = "/banner.png"; // Use local file by default
   
@@ -314,8 +330,8 @@ const PublicSite: React.FC = () => {
   } 
 
   // FALLBACK TITLES
-  const heroTitle = profile.contentJson?.hero?.title || profile.websiteTitle || profile.name || "Welcome to Ponale";
-  const heroSubtitle = profile.contentJson?.hero?.subtitle || "Experience the charm of Milan";
+    const heroTitle = getLocalizedText(profile.contentJson?.i18n?.hero?.title, profile.contentJson?.hero?.title || profile.websiteTitle || profile.name || "Welcome to Ponale");
+    const heroSubtitle = getLocalizedText(profile.contentJson?.i18n?.hero?.subtitle, profile.contentJson?.hero?.subtitle || "Experience the charm of Milan");
 
   const bgStyle = { 
     backgroundImage: `url(${heroImage})`,
@@ -411,10 +427,10 @@ const PublicSite: React.FC = () => {
           <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
                   <h3 className="text-xl font-bold text-gray-800 mb-3">
-                      {profile?.contentJson?.rules?.title || t("rules_title")}
+                      {getLocalizedText(profile?.contentJson?.i18n?.rules?.title, profile?.contentJson?.rules?.title || t("rules_title"))}
                   </h3>
                   <div className="text-sm text-gray-600 whitespace-pre-line max-h-64 overflow-auto border rounded p-3 bg-gray-50">
-                      {profile?.contentJson?.rules?.content || profile?.policies || ""}
+                      {getLocalizedText(profile?.contentJson?.i18n?.rules?.content, profile?.contentJson?.rules?.content || profile?.policies || "")}
                   </div>
                   <label className="flex items-center gap-2 mt-4 text-sm text-gray-700">
                       <input
@@ -448,7 +464,7 @@ const PublicSite: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-2">
                 {profile.logoUrl && <img src={profile.logoUrl} alt="Logo" className="h-10" />}
-                <span className="text-xl font-bold tracking-widest uppercase" style={{ color: profile.primaryColor }}>{profile.websiteTitle || profile.name}</span>
+                <span className="text-xl font-bold tracking-widest uppercase" style={{ color: profile.primaryColor }}>{getLocalizedText(profile.contentJson?.i18n?.websiteTitle, profile.websiteTitle || profile.name)}</span>
             </div>
             <nav className="hidden md:flex gap-8 text-sm font-medium tracking-wide">
                 <a href="#" className="hover:text-gold-500 transition-colors">{t('nav_home')}</a>
@@ -543,10 +559,10 @@ const PublicSite: React.FC = () => {
       <div id="about" className="pt-32 pb-20 bg-gray-50 px-6 text-center">
             {profile.contentJson?.about?.show !== false && (
                 <div className="max-w-3xl mx-auto">
-                    <h3 className="text-primary-800 text-3xl font-playfair mb-6" style={{ color: profile.primaryColor }}>{profile.contentJson?.about?.title || "Welcome"}</h3>
+                    <h3 className="text-primary-800 text-3xl font-playfair mb-6" style={{ color: profile.primaryColor }}>{getLocalizedText(profile.contentJson?.i18n?.about?.title, profile.contentJson?.about?.title || "Welcome")}</h3>
                     <div className="w-16 h-1 bg-gold-500 mx-auto mb-8" style={{ backgroundColor: profile.secondaryColor }}></div>
                     <p className="text-gray-600 leading-relaxed text-lg whitespace-pre-line">
-                        {profile.contentJson?.about?.content || profile.description}
+                        {getLocalizedText(profile.contentJson?.i18n?.about?.content, profile.contentJson?.about?.content || profile.description || "")}
                     </p>
                 </div>
             )}
@@ -554,9 +570,9 @@ const PublicSite: React.FC = () => {
             {/* AMENITIES SECTION */}
             {profile.contentJson?.features?.showAmenities !== false && (
                 <div className="mt-16 max-w-4xl mx-auto">
-                     {profile.amenities ? (
+                     {getLocalizedText(profile.contentJson?.i18n?.amenities, profile.amenities || "") ? (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                            {profile.amenities.split(',').map((item, idx) => {
+                            {getLocalizedText(profile.contentJson?.i18n?.amenities, profile.amenities || "").split(',').map((item, idx) => {
                                 const text = item.trim();
                                 if (!text) return null;
                                 const Icon = getAmenityIcon(text);
@@ -668,7 +684,7 @@ const PublicSite: React.FC = () => {
       <footer className="text-white py-16 px-6" style={{ backgroundColor: profile.primaryColor }}>
           <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
               <div>
-                  <h4 className="text-2xl font-playfair mb-6">{profile.websiteTitle}</h4>
+                  <h4 className="text-2xl font-playfair mb-6">{getLocalizedText(profile.contentJson?.i18n?.websiteTitle, profile.websiteTitle || profile.name)}</h4>
                   <p className="opacity-80 leading-relaxed mb-6">{profile.address}<br/>{profile.city}, {profile.country}</p>
                   <div className="flex gap-4">
                       {profile.facebookUrl && <a href={profile.facebookUrl} className="opacity-70 hover:opacity-100"><FaFacebook size={20} /></a>}
@@ -685,7 +701,7 @@ const PublicSite: React.FC = () => {
               </div>
               <div>
                   <h5 className="font-bold tracking-widest uppercase mb-6 text-sm opacity-90">Newsletter</h5>
-                  <p className="opacity-70 text-sm mb-4">{profile.footerText || "Subscribe for exclusive offers."}</p>
+                  <p className="opacity-70 text-sm mb-4">{getLocalizedText(profile.contentJson?.i18n?.footerText, profile.footerText || "Subscribe for exclusive offers.")}</p>
                   <div className="flex">
                       <input type="email" placeholder="Your email" className="bg-white/10 border-none outline-none px-4 py-2 text-white w-full placeholder-white/50" />
                       <button className="px-4 py-2 bg-white text-primary-900 font-bold uppercase text-xs" style={{ color: profile.primaryColor }}>Join</button>

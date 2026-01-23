@@ -5,7 +5,9 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarAlt, FaUser, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard } from "react-icons/fa";
 import { MdSingleBed, MdKingBed, MdBed } from "react-icons/md";
+import { useLanguage } from "../contexts/LanguageContext";
 const PublicSite = () => {
+    const { language } = useLanguage();
     const [profile, setProfile] = useState(null);
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -26,6 +28,40 @@ const PublicSite = () => {
     useEffect(() => {
         loadInitialData();
     }, []);
+    useEffect(() => {
+        setProfile((prev) => {
+            const i18n = prev?.contentJson?.i18n;
+            if (!prev || !i18n)
+                return prev;
+            const pick = (val, fallback = "") => (val?.[language] || val?.en || fallback || "");
+            return {
+                ...prev,
+                websiteTitle: pick(i18n.websiteTitle, prev.websiteTitle),
+                footerText: pick(i18n.footerText, prev.footerText),
+                amenities: pick(i18n.amenities, prev.amenities),
+                description: pick(i18n.about?.content, prev.description),
+                policies: pick(i18n.rules?.content, prev.policies),
+                contentJson: {
+                    ...prev.contentJson,
+                    hero: {
+                        ...prev.contentJson?.hero,
+                        title: pick(i18n.hero?.title, prev.contentJson?.hero?.title),
+                        subtitle: pick(i18n.hero?.subtitle, prev.contentJson?.hero?.subtitle),
+                    },
+                    about: {
+                        ...prev.contentJson?.about,
+                        title: pick(i18n.about?.title, prev.contentJson?.about?.title),
+                        content: pick(i18n.about?.content, prev.contentJson?.about?.content),
+                    },
+                    rules: {
+                        ...prev.contentJson?.rules,
+                        title: pick(i18n.rules?.title, prev.contentJson?.rules?.title),
+                        content: pick(i18n.rules?.content, prev.contentJson?.rules?.content),
+                    },
+                },
+            };
+        });
+    }, [language]);
     const loadInitialData = async () => {
         try {
             const res = await hotelProfileAPI.get();
@@ -166,8 +202,15 @@ const PublicSite = () => {
         heroImage = profile.contentJson.hero.image;
     }
     // FALLBACK TITLES
-    const heroTitle = profile.contentJson?.hero?.title || profile.websiteTitle || profile.name || "Welcome to Ponale";
-    const heroSubtitle = profile.contentJson?.hero?.subtitle || "Experience the charm of Milan";
+    const getLocalizedText = (value, fallback = "") => {
+        if (!value)
+            return fallback;
+        if (typeof value === "string")
+            return value;
+        return value[language] || value.en || fallback;
+    };
+    const heroTitle = getLocalizedText(profile.contentJson?.i18n?.hero?.title, profile.contentJson?.hero?.title || profile.websiteTitle || profile.name || "Welcome to Ponale");
+    const heroSubtitle = getLocalizedText(profile.contentJson?.i18n?.hero?.subtitle, profile.contentJson?.hero?.subtitle || "Experience the charm of Milan");
     const bgStyle = {
         backgroundImage: `url(${heroImage})`,
         backgroundSize: 'cover',
