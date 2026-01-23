@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { propertyAPI, roomAPI, guestAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI } from "../api/endpoints";
+import { propertyAPI, roomAPI, guestAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI, paymentsAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard, FaSwimmingPool, FaSnowflake, FaDumbbell, FaSpa, FaUtensils, FaShuttleVan, FaTv, FaConciergeBell, FaBaby, FaDog, FaWheelchair, FaKey, FaWind } from "react-icons/fa";
@@ -101,6 +101,96 @@ const PublicSite: React.FC = () => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const stripeStatus = params.get("stripe");
+        const sessionId = params.get("session_id");
+
+        const finalizeAfterPayment = async () => {
+            if (!sessionId || stripeStatus !== "success") return;
+
+            const pendingRaw = sessionStorage.getItem("pendingBooking");
+            if (!pendingRaw) return;
+
+            try {
+                setBookingStatus("processing");
+                const verifyRes = await paymentsAPI.verifySession(sessionId);
+                if (verifyRes.data?.status !== "paid") {
+                    setBookingStatus("error");
+                    return;
+                }
+
+                const pending = JSON.parse(pendingRaw);
+
+                const guestRes = await guestAPI.create({
+                    firstName: pending.guestDetails.firstName,
+                    lastName: pending.guestDetails.lastName,
+                    email: pending.guestDetails.email,
+                    phone: pending.guestDetails.phone,
+                });
+
+                const createdRefs: string[] = [];
+                let totalForAllRooms = 0;
+
+                for (let i = 0; i < pending.roomCount; i++) {
+                    const guestsForThisRoom = Math.floor(pending.guests / pending.roomCount) + (i === 0 ? pending.guests % pending.roomCount : 0);
+                    const thisBreakfastCost = pending.wantsBreakfast ? (pending.PRICE_BREAKFAST * guestsForThisRoom * pending.nights) : 0;
+                    const thisParkingCost = (pending.wantsParking && i === 0) ? (pending.PRICE_PARKING * pending.nights) : 0;
+                    const thisBookingTotal = pending.roomPrice + thisBreakfastCost + thisParkingCost;
+                    totalForAllRooms += thisBookingTotal;
+
+                    const roomIdToUse = pending.roomIds[i] || pending.roomIds[0];
+
+                    const bookingRes = await bookingAPI.create({
+                        guestId: guestRes.data.id,
+                        propertyId: pending.propertyId,
+                        roomId: roomIdToUse,
+                        checkInDate: pending.checkIn,
+                        checkOutDate: pending.checkOut,
+                        numberOfGuests: guestsForThisRoom,
+                        breakfastCount: pending.wantsBreakfast ? guestsForThisRoom : 0,
+                        parkingIncluded: (pending.wantsParking && i === 0),
+                        source: "website",
+                        totalPrice: thisBookingTotal,
+                        paidAmount: thisBookingTotal,
+                        status: "confirmed",
+                    });
+
+                    const ref = bookingRes.data?.bookingNumber || (bookingRes.data?.id ? `#${bookingRes.data.id}` : "");
+                    if (ref) createdRefs.push(ref);
+                }
+
+                setConfirmation({
+                    guest: { ...pending.guestDetails },
+                    checkIn: pending.checkIn,
+                    checkOut: pending.checkOut,
+                    bookedAt: new Date().toISOString(),
+                    roomTypeName: pending.roomTypeName,
+                    roomCount: pending.roomCount,
+                    guests: pending.guests,
+                    wantsBreakfast: pending.wantsBreakfast,
+                    wantsParking: pending.wantsParking,
+                    totalPrice: totalForAllRooms,
+                    bookingRefs: createdRefs.length ? createdRefs : ["Confirmed"],
+                });
+                setBookingStatus("success");
+                sessionStorage.removeItem("pendingBooking");
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (err) {
+                console.error(err);
+                setBookingStatus("error");
+            }
+        };
+
+        if (stripeStatus === "cancel") {
+            sessionStorage.removeItem("pendingBooking");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setBookingStatus("idle");
+        }
+
+        finalizeAfterPayment();
+    }, []);
 
     useEffect(() => {
         const loadGuestProfile = async () => {
@@ -216,7 +306,7 @@ const PublicSite: React.FC = () => {
       setBookingStep(2);
   };
 
-  const confirmBooking = async () => {
+    const confirmBooking = async () => {
       const token = localStorage.getItem("guestToken");
       if (!token) {
           alert("Please log in or create a guest account before booking.");
@@ -242,69 +332,51 @@ const PublicSite: React.FC = () => {
       const roomPrice = selectedRoomType.basePrice; 
 
       try {
-          // 1. Create Guest
-          const guestRes = await guestAPI.create({ 
-              firstName: guestDetails.firstName, 
-              lastName: guestDetails.lastName, 
-              email: guestDetails.email, 
-              phone: guestDetails.phone
-          });
-          
-          // 2. Create Booking(s)
-          // Simulate Payment Delay
-          await new Promise(resolve => setTimeout(resolve, 1500)); 
-
-          const roomIds = selectedRoomType.sampleRoom.ids && selectedRoomType.sampleRoom.ids.length >= roomCount 
-              ? selectedRoomType.sampleRoom.ids 
+          const roomIds = selectedRoomType.sampleRoom.ids && selectedRoomType.sampleRoom.ids.length >= roomCount
+              ? selectedRoomType.sampleRoom.ids
               : [selectedRoomType.sampleRoom.id];
 
-          const createdRefs: string[] = [];
           let totalForAllRooms = 0;
-
           for (let i = 0; i < roomCount; i++) {
-              // Distribute guests across rooms
               const guestsForThisRoom = Math.floor(guests / roomCount) + (i === 0 ? guests % roomCount : 0);
-              
               const thisBreakfastCost = wantsBreakfast ? (PRICE_BREAKFAST * guestsForThisRoom * nights) : 0;
               const thisParkingCost = (wantsParking && i === 0) ? (PRICE_PARKING * nights) : 0;
-              const thisBookingTotal = roomPrice + thisBreakfastCost + thisParkingCost;
-              totalForAllRooms += thisBookingTotal;
-              
-              const roomIdToUse = roomIds[i] || roomIds[0];
-
-              const bookingRes = await bookingAPI.create({
-                  guestId: guestRes.data.id,
-                  propertyId: selectedRoomType.sampleRoom.propertyId,
-                  roomId: roomIdToUse, 
-                  checkInDate: checkIn,
-                  checkOutDate: checkOut,
-                  numberOfGuests: guestsForThisRoom,
-                  breakfastCount: wantsBreakfast ? guestsForThisRoom : 0,
-                  parkingIncluded: (wantsParking && i === 0),
-                  source: "website",
-                  totalPrice: thisBookingTotal,
-                  paidAmount: thisBookingTotal, // Fully Pre-Paid
-                  status: "confirmed"
-              });
-              const ref = bookingRes.data?.bookingNumber || (bookingRes.data?.id ? `#${bookingRes.data.id}` : "");
-              if (ref) createdRefs.push(ref);
+              totalForAllRooms += roomPrice + thisBreakfastCost + thisParkingCost;
           }
-          
-          setConfirmation({
-            guest: { ...guestDetails },
-            checkIn,
-            checkOut,
-                        bookedAt: new Date().toISOString(),
-            roomTypeName: selectedRoomType?.name || "",
-            roomCount,
-            guests,
-            wantsBreakfast,
-            wantsParking,
-            totalPrice: totalForAllRooms,
-            bookingRefs: createdRefs.length ? createdRefs : ["Confirmed"],
-          });
-          setBookingStatus("success");
 
+          const pending = {
+              guestDetails,
+              checkIn,
+              checkOut,
+              roomTypeName: selectedRoomType?.name || "",
+              roomCount,
+              guests,
+              wantsBreakfast,
+              wantsParking,
+              roomIds,
+              propertyId: selectedRoomType.sampleRoom.propertyId,
+              roomPrice,
+              PRICE_BREAKFAST,
+              PRICE_PARKING,
+              nights,
+          };
+
+          sessionStorage.setItem("pendingBooking", JSON.stringify(pending));
+
+          const sessionRes = await paymentsAPI.createCheckoutSession({
+              amount: totalForAllRooms,
+              currency: "eur",
+              description: `${pending.roomTypeName} x${roomCount} (${checkIn} - ${checkOut})`,
+              customerEmail: guestDetails.email,
+          });
+
+          const checkoutUrl = sessionRes.data?.url;
+          if (!checkoutUrl) {
+              setBookingStatus("error");
+              return;
+          }
+
+          window.location.href = checkoutUrl;
       } catch (err) {
           console.error(err);
           setBookingStatus("error");

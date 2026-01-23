@@ -28,7 +28,8 @@
     "express-cors": "^0.0.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "nodemailer": "^6.9.13"
+    "nodemailer": "^6.9.13",
+    "stripe": "^14.21.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

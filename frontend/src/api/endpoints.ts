@@ -127,6 +127,19 @@ export const guestAuthAPI = {
     }),
 };
 
+export const paymentsAPI = {
+  createCheckoutSession: (data: {
+    amount: number;
+    currency?: string;
+    description?: string;
+    customerEmail?: string;
+  }) => apiClient.post("/payments/checkout-session", data),
+  verifySession: (sessionId: string) =>
+    apiClient.get("/payments/verify-session", {
+      params: { session_id: sessionId },
+    }),
+};
+
 
 
 

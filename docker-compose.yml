@@ -22,6 +22,9 @@ services:
       SMTP_USER: "hotel.valganna@libero.it"
       SMTP_PASS: "hotelvalganna123"
       SMTP_FROM: "hotel.valganna@libero.it"
+      STRIPE_SECRET_KEY: ""
+      STRIPE_SUCCESS_URL: ""
+      STRIPE_CANCEL_URL: ""
     volumes:
       - ./backend/prisma:/app/prisma # Persist SQLite DB
 

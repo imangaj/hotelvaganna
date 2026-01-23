@@ -84,3 +84,10 @@ export const guestAuthAPI = {
         headers: { Authorization: `Bearer ${token}` },
     }),
 };
+
+export const paymentsAPI = {
+    createCheckoutSession: (data) => apiClient.post("/payments/checkout-session", data),
+    verifySession: (sessionId) => apiClient.get("/payments/verify-session", {
+        params: { session_id: sessionId },
+    }),
+};
