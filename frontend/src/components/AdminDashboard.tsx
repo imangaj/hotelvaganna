@@ -75,7 +75,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     const init = async () => {
       try {
         const res = await bookingAPI.getAll();
-        const data = res.data || [];
+        const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const data = Array.isArray(list) ? list : [];
         const maxTime = data.reduce((max: number, booking: any) => {
           const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
           return t > max ? t : max;
@@ -93,7 +94,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     const poll = async () => {
       try {
         const res = await bookingAPI.getAll();
-        const data = res.data || [];
+        const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const data = Array.isArray(list) ? list : [];
         const fresh = data.filter((booking: any) => {
           const t = new Date(booking.createdAt || booking.checkInDate || 0).getTime();
           return t > lastSeenBookingTime.current;
@@ -396,7 +398,13 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate }) => 
     const fetchStats = async () => {
       try {
         const response = await dashboardAPI.getStats();
-        setStats(response.data);
+        const payload = response.data || {};
+        setStats({
+          properties: Number(payload.properties ?? 0),
+          rooms: Number(payload.rooms ?? 0),
+          bookings: Number(payload.bookings ?? 0),
+          revenue: Number(payload.revenue ?? 0),
+        });
       } catch (error) {
         console.error("Error fetching stats:", error);
       } finally {
