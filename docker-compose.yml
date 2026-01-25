@@ -34,7 +34,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      VITE_APP_MODE: "guest"
       VITE_API_URL: "http://64.226.97.191:5000/api"
     depends_on:
       - backend
