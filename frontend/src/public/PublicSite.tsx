@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { propertyAPI, roomAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI, paymentsAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -88,6 +88,8 @@ const PublicSite: React.FC = () => {
     const [guestToken, setGuestToken] = useState<string | null>(localStorage.getItem("guestToken"));
     const [guestEmail, setGuestEmail] = useState<string>("");
     const [guestProfileName, setGuestProfileName] = useState<string>("");
+    const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+    const accountMenuRef = useRef<HTMLDivElement | null>(null);
     const [confirmation, setConfirmation] = useState<null | {
         guest: { firstName: string; lastName: string; email: string; phone: string };
         checkInName?: string;
@@ -107,6 +109,18 @@ const PublicSite: React.FC = () => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!accountMenuRef.current) return;
+            if (!accountMenuRef.current.contains(event.target as Node)) {
+                setIsAccountMenuOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -580,10 +594,11 @@ const PublicSite: React.FC = () => {
                 {profile.contentJson?.map?.show !== false && <a href="#location" className="hover:text-gold-500 transition-colors">{t('nav_location')}</a>}
             </nav>
             <div className="flex items-center gap-3 sm:gap-4">
-                <div className="relative group">
+                <div className="relative" ref={accountMenuRef}>
                     <button
                         className="flex items-center gap-2 rounded-full border border-gray-200 bg-white/80 px-2 py-1 text-sm text-gray-700 hover:bg-white"
                         type="button"
+                        onClick={() => setIsAccountMenuOpen((prev) => !prev)}
                     >
                         <span
                             className="flex h-8 w-8 items-center justify-center rounded-full text-white text-sm font-bold"
@@ -591,17 +606,36 @@ const PublicSite: React.FC = () => {
                         >
                             {guestFirstName.charAt(0).toUpperCase()}
                         </span>
-                        <span className="hidden sm:inline">{guestFirstName}</span>
+                        <span className="hidden sm:inline">Hi, {guestFirstName}</span>
                     </button>
-                    <div className="absolute right-0 mt-2 hidden w-56 rounded-lg border border-gray-200 bg-white shadow-lg group-hover:block">
-                        <div className="px-4 pt-3 text-xs font-semibold uppercase text-gray-500">Language</div>
-                        <div className="px-4 pb-2">
-                            <LanguageSelector />
+                    {isAccountMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg">
+                            <div className="px-4 pt-3 text-xs font-semibold uppercase text-gray-500">Language</div>
+                            <div className="px-4 pb-2">
+                                <LanguageSelector />
+                            </div>
+                            <a href="/guest" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                My Reservation
+                            </a>
+                            {guestToken ? (
+                                <button
+                                    type="button"
+                                    className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
+                                    onClick={() => {
+                                        localStorage.removeItem("guestToken");
+                                        setGuestToken(null);
+                                        setIsAccountMenuOpen(false);
+                                    }}
+                                >
+                                    Logout
+                                </button>
+                            ) : (
+                                <a href="/guest" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    Login
+                                </a>
+                            )}
                         </div>
-                        <a href="/guest" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                            My Reservation
-                        </a>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>
