@@ -442,6 +442,8 @@ const PublicSite: React.FC = () => {
     backgroundColor: '#333' // Fallback color just in case
   };
 
+    const guestFirstName = (guestProfileName || guestDetails.firstName || "Guest").split(" ")[0];
+
   // STRICT MAP LOGIC: Prevent recursive iframe if URL is bad
   let mapUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2796.3735846464388!2d9.159223076198147!3d45.50255773087862!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4786c0e350fbccaf%3A0xf2986aaa964cd292!2sHotel%20Valganna%20Srl!5e0!3m2!1sen!2sit!4v1768820423168!5m2!1sen!2sit";
   
@@ -575,21 +577,32 @@ const PublicSite: React.FC = () => {
             <nav className="hidden md:flex gap-8 text-sm font-medium tracking-wide">
                 <a href="#" className="hover:text-gold-500 transition-colors">{t('nav_home')}</a>
                 {profile.contentJson?.about?.show !== false && <a href="#about" className="hover:text-gold-500 transition-colors">{t('nav_about')}</a>}
-                <a href="#rooms" className="hover:text-gold-500 transition-colors">{t('nav_suites')}</a>
                 {profile.contentJson?.map?.show !== false && <a href="#location" className="hover:text-gold-500 transition-colors">{t('nav_location')}</a>}
-                <a href="/guest" className="hover:text-gold-500 transition-colors">My Reservation</a>
             </nav>
             <div className="flex items-center gap-3 sm:gap-4">
-                {guestProfileName && (
-                    <span className="hidden sm:inline text-sm text-gray-600">Hi, {guestProfileName}</span>
-                )}
-                <a href="/guest" className="md:hidden text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900">
-                    My Reservation
-                </a>
-                <LanguageSelector />
-                <button className="px-6 py-2 text-white text-sm font-bold tracking-wider uppercase transition-transform hover:scale-105" style={{ backgroundColor: profile.secondaryColor }}>
-                    {t('nav_book_now')}
-                </button>
+                <div className="relative group">
+                    <button
+                        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white/80 px-2 py-1 text-sm text-gray-700 hover:bg-white"
+                        type="button"
+                    >
+                        <span
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-white text-sm font-bold"
+                            style={{ backgroundColor: profile.primaryColor }}
+                        >
+                            {guestFirstName.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="hidden sm:inline">{guestFirstName}</span>
+                    </button>
+                    <div className="absolute right-0 mt-2 hidden w-56 rounded-lg border border-gray-200 bg-white shadow-lg group-hover:block">
+                        <div className="px-4 pt-3 text-xs font-semibold uppercase text-gray-500">Language</div>
+                        <div className="px-4 pb-2">
+                            <LanguageSelector />
+                        </div>
+                        <a href="/guest" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            My Reservation
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
       </header>
