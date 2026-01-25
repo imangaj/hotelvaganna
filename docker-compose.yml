@@ -29,12 +29,7 @@ services:
       - ./backend/prisma:/app/prisma # Persist SQLite DB
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_APP_MODE: "guest"
-        VITE_API_URL: "http://64.226.97.191:5000/api"
+    image: imanganj/hotelvaganna-frontend:latest
     container_name: pms-frontend
     ports:
       - "3000:3000"
