@@ -47,6 +47,7 @@ const BookingsPage: React.FC = () => {
   const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [manualForm, setManualForm] = useState({
     propertyId: "",
     roomId: "",
@@ -158,6 +159,9 @@ const BookingsPage: React.FC = () => {
     });
   };
 
+  const toDateKey = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
+
   const getStatusBadgeClass = (status: string) => {
     const statusMap: { [key: string]: string } = {
       CONFIRMED: "badge-success",
@@ -263,8 +267,6 @@ const BookingsPage: React.FC = () => {
     if (room.status === "OUT_OF_SERVICE") return "OUT_OF_SERVICE";
     if (room.status === "CLEANING") return "CLEANING";
 
-    const toDateKey = (dateStr: string) =>
-      new Date(dateStr).toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
     const targetKey = toDateKey(selectedDate);
     const hasBooking = bookings.some((booking) => {
       if (booking.roomId !== room.id) return false;
@@ -295,6 +297,45 @@ const BookingsPage: React.FC = () => {
   const filteredByProperty = selectedProperty
     ? filteredBookings.filter((b) => b.propertyId === Number(selectedProperty))
     : filteredBookings;
+
+  const filteredByDate = selectedDate
+    ? filteredByProperty.filter((booking) => {
+        const targetKey = toDateKey(selectedDate);
+        const checkIn = toDateKey(booking.checkInDate);
+        const checkOut = toDateKey(booking.checkOutDate);
+        return targetKey >= checkIn && targetKey < checkOut;
+      })
+    : filteredByProperty;
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredBySearch = normalizedSearch
+    ? filteredByDate.filter((booking) => {
+        const propertyName = properties.find((p) => p.id === booking.propertyId)?.name || "";
+        const roomNumber = booking.room?.roomNumber || booking.roomId || "";
+        const roomType = booking.room?.roomType || "";
+        const guestName = `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim();
+        const haystack = [
+          booking.id,
+          propertyName,
+          guestName,
+          booking.guest?.email || "",
+          roomNumber,
+          roomType,
+          booking.checkInDate,
+          booking.checkOutDate,
+          booking.createdAt || "",
+          booking.numberOfGuests,
+          booking.totalPrice,
+          booking.bookingStatus,
+          booking.paymentStatus,
+          booking.source,
+          booking.notes || "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+    : filteredByDate;
 
   if (loading && bookings.length === 0) {
     return <div className="loading">{t("bk_loading")}</div>;
@@ -340,12 +381,21 @@ const BookingsPage: React.FC = () => {
             <option value="CHECKED_OUT">{t("bk_checked_out")}</option>
             <option value="CANCELLED">{t("bk_cancelled")}</option>
           </select>
+          <label htmlFor="searchFilter">Search</label>
+          <input
+            id="searchFilter"
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="filter-select"
+            placeholder="Search all columns"
+          />
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      {filteredByProperty.length === 0 ? (
+      {filteredBySearch.length === 0 ? (
         <div className="empty-state">
           <p>{t("bk_no_bookings")}</p>
         </div>
@@ -371,7 +421,7 @@ const BookingsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredByProperty.map((booking) => (
+              {filteredBySearch.map((booking) => (
                 <tr key={booking.id}>
                   <td>#{booking.id}</td>
                   <td>{booking.guest?.firstName || "-"}</td>
