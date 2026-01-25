@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { bookingAPI, dashboardAPI } from "../api/endpoints";
-import BookingsPage from "../pages/BookingsPage.tsx";
-import AnalyticsPage from "../pages/AnalyticsPage.tsx";
-import GuestsPage from "../pages/GuestsPage.tsx";
-import SettingsPage from "../pages/SettingsPage.tsx";
-import PricingPage from "../pages/PricingPage.tsx";
-import HousekeepingPage from "../pages/HousekeepingPage.tsx";
-import CalendarView from "./CalendarView.tsx";
-import LanguageSelector from "./LanguageSelector.tsx";
+import BookingsPage from "../pages/BookingsPage";
+import AnalyticsPage from "../pages/AnalyticsPage";
+import GuestsPage from "../pages/GuestsPage";
+import SettingsPage from "../pages/SettingsPage";
+import PricingPage from "../pages/PricingPage";
+import HousekeepingPage from "../pages/HousekeepingPage";
+import CalendarView from "./CalendarView";
+import LanguageSelector from "./LanguageSelector";
 import { useLanguage } from "../contexts/LanguageContext";
 import "./AdminDashboard.css";
 

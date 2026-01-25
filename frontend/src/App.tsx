@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
-import AuthPage from "./components/AuthPage.tsx";
-import AdminDashboard from "./components/AdminDashboard.tsx";
-import PublicSite from "./public/PublicSite.tsx";
-import GuestPortal from "./public/GuestPortal.tsx";
+import AuthPage from "./components/AuthPage";
+import AdminDashboard from "./components/AdminDashboard";
+import PublicSite from "./public/PublicSite";
+import GuestPortal from "./public/GuestPortal";
+cimport GuestForgotPassword from "./pages/GuestForgotPassword";
+import GuestResetPassword from "./pages/GuestResetPassword";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./styles/global.css";
 
 function App() {
@@ -25,7 +28,7 @@ function App() {
     setIsAuthenticated(false);
   };
 
-  const appMode = import.meta.env.VITE_APP_MODE as "public" | "admin" | undefined;
+  const appMode = import.meta.env.VITE_APP_MODE as "public" | "admin" | "guest" | undefined;
   const isAdminRoute = appMode === "admin" || (!appMode && window.location.pathname.startsWith("/admin"));
   const isGuestRoute = appMode === "guest" || (!appMode && window.location.pathname.startsWith("/guest"));
   const isPublicRoute = appMode === "public" || !appMode;
@@ -35,7 +38,7 @@ function App() {
   }
 
   return (
-    <>
+    <Router>
       {isAdminRoute ? (
         isAuthenticated ? (
           <AdminDashboard onLogout={handleLogout} />
@@ -43,11 +46,15 @@ function App() {
           <AuthPage onAuthSuccess={handleAuthSuccess} />
         )
       ) : isGuestRoute ? (
-        <GuestPortal />
+        <Routes>
+          <Route path="/guest/forgot-password" element={<GuestForgotPassword />} />
+          <Route path="/guest/reset-password" element={<GuestResetPassword />} />
+          <Route path="/guest/*" element={<GuestPortal />} />
+        </Routes>
       ) : isPublicRoute ? (
         <PublicSite />
       ) : null}
-    </>
+    </Router>
   );
 }
 

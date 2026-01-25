@@ -117,7 +117,20 @@ model GuestAccount {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  passwordResetTokens GuestPasswordResetToken[]
+
   @@map("guest_accounts")
+}
+
+model GuestPasswordResetToken {
+  id              Int          @id @default(autoincrement())
+  token           String       @unique
+  guestAccountId  Int
+  guestAccount    GuestAccount @relation(fields: [guestAccountId], references: [id], onDelete: Cascade)
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+
+  @@map("guest_password_reset_tokens")
 }
 
 // Bookings

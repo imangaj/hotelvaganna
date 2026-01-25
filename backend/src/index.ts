@@ -102,10 +102,14 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(port, host, () => {
-  const hostLabel = host === "0.0.0.0" ? "localhost" : host;
-  console.log(`🚀 Server is running at http://${hostLabel}:${port}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-});
+if (process.env.VITEST) {
+  // For testing, we export the app
+} else {
+  app.listen(port, host, () => {
+    const hostLabel = host === "0.0.0.0" ? "localhost" : host;
+    console.log(`🚀 Server is running at http://${hostLabel}:${port}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+  });
+}
 
-export default app;
+export { app };

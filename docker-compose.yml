@@ -31,16 +31,19 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        VITE_APP_MODE: "guest"
+        VITE_API_URL: "http://64.226.97.191:5000/api"
     container_name: pms-frontend
     ports:
       - "3000:3000"
     environment:
-      REACT_APP_API_URL: "http://localhost:5000/api"
+      VITE_APP_MODE: "guest"
+      VITE_API_URL: "http://64.226.97.191:5000/api"
     depends_on:
       - backend
-    volumes:
-      - ./frontend/src:/app/src
+    # volumes removed for production; ensures latest build is served
 
 volumes:
   postgres_data:

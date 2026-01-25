@@ -218,6 +218,9 @@ const GuestPortal: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+              <div className="flex justify-end">
+                <a href="/guest/forgot-password" className="text-xs text-blue-600 hover:underline">Forgot Password?</a>
+              </div>
               {authError && <div className="text-red-600 text-sm">{authError}</div>}
               <button
                 type="submit"
