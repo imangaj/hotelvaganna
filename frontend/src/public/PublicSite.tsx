@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { propertyAPI, roomAPI, guestAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI, paymentsAPI } from "../api/endpoints";
+import { propertyAPI, roomAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI, paymentsAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarAlt, FaUser, FaSearch, FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaWifi, FaCoffee, FaCar, FaCreditCard, FaSwimmingPool, FaSnowflake, FaDumbbell, FaSpa, FaUtensils, FaShuttleVan, FaTv, FaConciergeBell, FaBaby, FaDog, FaWheelchair, FaKey, FaWind } from "react-icons/fa";
@@ -77,8 +77,10 @@ const PublicSite: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [rulesAccepted, setRulesAccepted] = useState(false);
-  const [guestDetails, setGuestDetails] = useState({ firstName: "", lastName: "", email: "", phone: "" });
-    const [checkInName, setCheckInName] = useState("");
+    const [guestDetails, setGuestDetails] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+        const [checkInName, setCheckInName] = useState("");
+        const [additionalGuestNames, setAdditionalGuestNames] = useState("");
+        const [guestId, setGuestId] = useState<number | null>(null);
   const [bookingStatus, setBookingStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [bookingStep, setBookingStep] = useState(1);
   const [wantsBreakfast, setWantsBreakfast] = useState(false);
@@ -126,12 +128,11 @@ const PublicSite: React.FC = () => {
 
                 const pending = JSON.parse(pendingRaw);
 
-                const guestRes = await guestAPI.create({
-                    firstName: pending.guestDetails.firstName,
-                    lastName: pending.guestDetails.lastName,
-                    email: pending.guestDetails.email,
-                    phone: pending.guestDetails.phone,
-                });
+                const guestIdToUse = pending.guestId;
+                if (!guestIdToUse) {
+                    setBookingStatus("error");
+                    return;
+                }
 
                 const createdRefs: string[] = [];
                 let totalForAllRooms = 0;
@@ -146,7 +147,7 @@ const PublicSite: React.FC = () => {
                     const roomIdToUse = pending.roomIds[i] || pending.roomIds[0];
 
                     const bookingRes = await bookingAPI.create({
-                        guestId: guestRes.data.id,
+                        guestId: guestIdToUse,
                         propertyId: pending.propertyId,
                         roomId: roomIdToUse,
                         checkInDate: pending.checkIn,
@@ -157,7 +158,10 @@ const PublicSite: React.FC = () => {
                         source: "website",
                         totalPrice: thisBookingTotal,
                         paidAmount: thisBookingTotal,
-                        notes: pending.checkInName ? `Check-in guest: ${pending.checkInName}` : undefined,
+                        notes: [
+                            pending.checkInName ? `Check-in guest: ${pending.checkInName}` : null,
+                            pending.additionalGuestNames ? `Additional guests: ${pending.additionalGuestNames}` : null,
+                        ].filter(Boolean).join(" | ") || undefined,
                         status: "confirmed",
                     });
 
@@ -206,8 +210,10 @@ const PublicSite: React.FC = () => {
                 const firstName = res.data?.firstName || "";
                 const lastName = res.data?.lastName || "";
                 const phone = res.data?.phone || "";
+                const id = res.data?.guestId ?? null;
                 setGuestEmail(email);
                 setGuestProfileName(`${firstName} ${lastName}`.trim());
+                setGuestId(id);
                 setGuestDetails((prev) => ({
                     ...prev,
                     email,
@@ -215,6 +221,7 @@ const PublicSite: React.FC = () => {
                     lastName: prev.lastName || lastName,
                     phone: prev.phone || phone,
                 }));
+                setCheckInName((prev) => prev || `${firstName} ${lastName}`.trim());
             } catch (err) {
                 console.error(err);
             }
@@ -339,6 +346,10 @@ const PublicSite: React.FC = () => {
           alert("Please fill in all guest details including phone number.");
           return;
       }
+      if (!guestId) {
+          alert("Please log in again to refresh your guest profile.");
+          return;
+      }
       setBookingStatus("processing");
 
       // Calculate nights & Fixed Prices
@@ -368,7 +379,9 @@ const PublicSite: React.FC = () => {
 
           const pending = {
               guestDetails,
+              guestId,
               checkInName,
+              additionalGuestNames,
               checkIn,
               checkOut,
               roomTypeName: selectedRoomType?.name || "",
@@ -979,6 +992,10 @@ const PublicSite: React.FC = () => {
                                         <div>
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Check-in Name</label>
                                             <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={checkInName} onChange={e => setCheckInName(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Guest Names</label>
+                                            <input className="border p-2 w-full rounded outline-none focus:border-primary-500" placeholder="e.g. John Smith, Maria Rossi" value={additionalGuestNames} onChange={e => setAdditionalGuestNames(e.target.value)} />
                                         </div>
                                     </div>
 

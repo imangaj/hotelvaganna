@@ -28,12 +28,22 @@ router.post("/register", async (req: Request, res: Response) => {
       data: { email, passwordHash, firstName, lastName, phone },
     });
 
+    const existingGuest = await prisma.guest.findFirst({ where: { email } });
+    const guest = existingGuest
+      ? await prisma.guest.update({
+          where: { id: existingGuest.id },
+          data: { firstName, lastName, phone },
+        })
+      : await prisma.guest.create({
+          data: { firstName, lastName, email, phone },
+        });
+
     const token = jwt.sign({ email: account.email }, GUEST_JWT_SECRET, { expiresIn: "7d" } as any);
 
     return res.json({
       message: "Guest account created",
       token,
-      guest: { email: account.email, firstName: account.firstName, lastName: account.lastName, phone: account.phone },
+      guest: { email: account.email, firstName: account.firstName, lastName: account.lastName, phone: account.phone, guestId: guest.id },
     });
   } catch (error) {
     return res.status(500).json({ message: "Registration failed", error });
@@ -58,12 +68,24 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    const existingGuest = await prisma.guest.findFirst({ where: { email: account.email } });
+    const guest = existingGuest
+      ? existingGuest
+      : await prisma.guest.create({
+          data: {
+            email: account.email,
+            firstName: account.firstName || "",
+            lastName: account.lastName || "",
+            phone: account.phone || undefined,
+          },
+        });
+
     const token = jwt.sign({ email: account.email }, GUEST_JWT_SECRET, { expiresIn: "7d" } as any);
 
     return res.json({
       message: "Login successful",
       token,
-      guest: { email: account.email, firstName: account.firstName, lastName: account.lastName, phone: account.phone },
+      guest: { email: account.email, firstName: account.firstName, lastName: account.lastName, phone: account.phone, guestId: guest.id },
     });
   } catch (error) {
     return res.status(500).json({ message: "Login failed", error });
@@ -126,12 +148,28 @@ router.get("/me", requireGuestAuth, async (req: GuestAuthRequest, res: Response)
   }
 
   const account = await prisma.guestAccount.findUnique({ where: { email } });
+  if (!account) {
+    return res.status(404).json({ message: "Guest account not found" });
+  }
+
+  const existingGuest = await prisma.guest.findFirst({ where: { email } });
+  const guest = existingGuest
+    ? existingGuest
+    : await prisma.guest.create({
+        data: {
+          email,
+          firstName: account.firstName || "",
+          lastName: account.lastName || "",
+          phone: account.phone || undefined,
+        },
+      });
 
   return res.json({
     email,
-    firstName: account?.firstName || "",
-    lastName: account?.lastName || "",
-    phone: account?.phone || "",
+    firstName: account.firstName || "",
+    lastName: account.lastName || "",
+    phone: account.phone || "",
+    guestId: guest.id,
   });
 });
 
