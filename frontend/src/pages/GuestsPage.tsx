@@ -216,18 +216,30 @@ const GuestsPage: React.FC = () => {
               </div>
               
               <div className="guest-info">
-                <p>
-                  <strong>📧 {t("guests_email")}:</strong> {guest.email}
-                </p>
-                {guest.phone && (
-                  <p>
-                    <strong>📞 {t("guests_phone")}:</strong> {guest.phone}
-                  </p>
-                )}
-                {guest.country && (
-                  <p>
-                    <strong>🌍 {t("guests_country")}:</strong> {guest.country}
-                  </p>
+                {editingGuestId === guest.id ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    <input className="border p-2 rounded" value={editGuest.firstName} onChange={(e) => setEditGuest({ ...editGuest, firstName: e.target.value })} placeholder={t("guests_first_name")} />
+                    <input className="border p-2 rounded" value={editGuest.lastName} onChange={(e) => setEditGuest({ ...editGuest, lastName: e.target.value })} placeholder={t("guests_last_name")} />
+                    <input className="border p-2 rounded" value={editGuest.email} onChange={(e) => setEditGuest({ ...editGuest, email: e.target.value })} placeholder={t("guests_email")} />
+                    <input className="border p-2 rounded" value={editGuest.phone || ""} onChange={(e) => setEditGuest({ ...editGuest, phone: e.target.value })} placeholder={t("guests_phone")} />
+                    <input className="border p-2 rounded" value={editGuest.country || ""} onChange={(e) => setEditGuest({ ...editGuest, country: e.target.value })} placeholder={t("guests_country")} />
+                  </div>
+                ) : (
+                  <>
+                    <p>
+                      <strong>📧 {t("guests_email")}:</strong> {guest.email}
+                    </p>
+                    {guest.phone && (
+                      <p>
+                        <strong>📞 {t("guests_phone")}:</strong> {guest.phone}
+                      </p>
+                    )}
+                    {guest.country && (
+                      <p>
+                        <strong>🌍 {t("guests_country")}:</strong> {guest.country}
+                      </p>
+                    )}
+                  </>
                 )}
                 {guest.lastBookingDate && (
                   <p>
@@ -237,6 +249,18 @@ const GuestsPage: React.FC = () => {
               </div>
 
               <div className="guest-actions">
+                {editingGuestId === guest.id ? (
+                  <>
+                    <button className="btn btn-sm btn-success" onClick={() => guest.id && handleUpdateGuest(guest.id)}>Save</button>
+                    <button className="btn btn-sm btn-secondary" onClick={() => setEditingGuestId(null)}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn btn-sm btn-info" onClick={() => handleEditGuest(guest)}>Edit</button>
+                    <button className="btn btn-sm btn-warning" onClick={() => handleResetGuestPasswordByEmail(guest.email)}>Reset Password</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => guest.id && handleDeleteGuest(guest.id)}>Delete</button>
+                  </>
+                )}
                 <button
                   className="btn btn-sm btn-primary"
                   onClick={() => setShowDetails(showDetails === guest.id ? null : guest.id)}

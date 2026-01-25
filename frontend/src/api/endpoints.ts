@@ -57,6 +57,9 @@ export const guestAPI = {
     phone?: string;
     country?: string;
   }) => apiClient.post("/guests", data),
+  update: (id: number, data: { firstName: string; lastName: string; email: string; phone?: string; country?: string }) =>
+    apiClient.put(`/guests/${id}`, data),
+  delete: (id: number) => apiClient.delete(`/guests/${id}`),
 };
 
 export const guestAccountAPI = {
