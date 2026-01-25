@@ -14,6 +14,7 @@ interface Booking {
   breakfastCount: number;
   parkingIncluded: boolean;
   createdAt: string;
+  notes?: string;
   guest?: { firstName?: string; lastName?: string; email?: string; phone?: string };
   room?: { roomNumber?: string; roomType?: string };
   property?: { name?: string; address?: string; city?: string; country?: string; phone?: string; email?: string };
@@ -116,6 +117,16 @@ const GuestPortal: React.FC = () => {
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
 
+  const parseGuestNotes = (notes?: string) => {
+    if (!notes) return { checkIn: "", additional: "" };
+    const checkInMatch = notes.match(/Check-in guest:\s*([^|]+)/i);
+    const additionalMatch = notes.match(/Additional guests:\s*([^|]+)/i);
+    return {
+      checkIn: checkInMatch?.[1]?.trim() || "",
+      additional: additionalMatch?.[1]?.trim() || "",
+    };
+  };
+
   const guestName = useMemo(() => {
     const fromBooking = bookings.find((b) => b.guest?.firstName || b.guest?.lastName)?.guest;
     if (fromBooking?.firstName || fromBooking?.lastName) {
@@ -157,6 +168,8 @@ const GuestPortal: React.FC = () => {
       booking.parkingIncluded ? "Parking" : null,
     ].filter(Boolean).join(" · ");
 
+    const guestNotes = parseGuestNotes(booking.notes);
+
     printWindow.document.write(`
       <html>
         <head>
@@ -181,7 +194,8 @@ const GuestPortal: React.FC = () => {
           </div>
           <div class="card">
             <div class="title">Reservation ${booking.bookingNumber || `#${booking.id}`}</div>
-            <div class="row"><span>Guest</span><span>${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}</span></div>
+            <div class="row"><span>Guest</span><span>${guestNotes.checkIn || `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim()}</span></div>
+            ${guestNotes.additional ? `<div class="row"><span>Additional Guests</span><span>${guestNotes.additional}</span></div>` : ""}
             <div class="row"><span>Dates</span><span>${formatDate(booking.checkInDate)} — ${formatDate(booking.checkOutDate)}</span></div>
             <div class="row"><span>Room</span><span>${booking.room?.roomType || "Room"}</span></div>
             <div class="row"><span>Guests</span><span>${booking.numberOfGuests}</span></div>
@@ -349,7 +363,9 @@ const GuestPortal: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {(reservationFilter === "upcoming" ? upcomingReservations : pastReservations).map((booking) => (
+                {(reservationFilter === "upcoming" ? upcomingReservations : pastReservations).map((booking) => {
+                  const guestNotes = parseGuestNotes(booking.notes);
+                  return (
                   <div key={booking.id} className="bg-white p-6 rounded-lg shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -366,6 +382,18 @@ const GuestPortal: React.FC = () => {
                     </div>
 
                     <div className="mt-4 grid md:grid-cols-2 gap-4 text-sm">
+                      {guestNotes.checkIn && (
+                        <div>
+                          <div className="text-gray-500">Check-in Name</div>
+                          <div className="font-medium">{guestNotes.checkIn}</div>
+                        </div>
+                      )}
+                      {guestNotes.additional && (
+                        <div>
+                          <div className="text-gray-500">Additional Guests</div>
+                          <div className="font-medium">{guestNotes.additional}</div>
+                        </div>
+                      )}
                       <div>
                         <div className="text-gray-500">Guest</div>
                         <div className="font-medium">
@@ -409,7 +437,8 @@ const GuestPortal: React.FC = () => {
                       </div>
                     )}
                   </div>
-                ))}
+                );
+                })}
               </div>
             )}
           </div>

@@ -91,6 +91,7 @@ const PublicSite: React.FC = () => {
     const [confirmation, setConfirmation] = useState<null | {
         guest: { firstName: string; lastName: string; email: string; phone: string };
         checkInName?: string;
+        additionalGuestNames?: string;
         checkIn: string;
         checkOut: string;
         bookedAt: string;
@@ -172,6 +173,7 @@ const PublicSite: React.FC = () => {
                 setConfirmation({
                     guest: { ...pending.guestDetails },
                     checkInName: pending.checkInName,
+                    additionalGuestNames: pending.additionalGuestNames,
                     checkIn: pending.checkIn,
                     checkOut: pending.checkOut,
                     bookedAt: new Date().toISOString(),
@@ -320,16 +322,8 @@ const PublicSite: React.FC = () => {
   };
 
   const goToPayment = () => {
-      if (!guestDetails.firstName || !guestDetails.lastName || !guestDetails.email || !guestDetails.phone || !checkInName) {
-          alert("Please fill in all guest details.");
-          return;
-      }
-      if (!isValidEmail(guestDetails.email)) {
-          alert("Please enter a valid email address.");
-          return;
-      }
-      if (!isValidPhone(guestDetails.phone)) {
-          alert("Please enter a valid phone number (digits only, min 7).");
+      if (!checkInName) {
+          alert("Please enter the check-in name.");
           return;
       }
       setBookingStep(2);
@@ -342,8 +336,8 @@ const PublicSite: React.FC = () => {
           window.location.href = "/guest";
           return;
       }
-      if (!selectedRoomType || !guestDetails.firstName || !guestDetails.email || !guestDetails.phone || !checkInName) {
-          alert("Please fill in all guest details including phone number.");
+      if (!selectedRoomType || !checkInName) {
+          alert("Please enter the check-in name.");
           return;
       }
       if (!guestId) {
@@ -403,7 +397,7 @@ const PublicSite: React.FC = () => {
               amount: totalForAllRooms,
               currency: "eur",
               description: `${pending.roomTypeName} x${roomCount} (${checkIn} - ${checkOut})`,
-              customerEmail: guestDetails.email,
+              customerEmail: guestEmail || guestDetails.email,
           });
 
           const checkoutUrl = sessionRes.data?.url;
@@ -851,8 +845,14 @@ const PublicSite: React.FC = () => {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="font-semibold">Guest</span>
-                                    <span>{confirmation ? `${confirmation.guest.firstName} ${confirmation.guest.lastName}` : ""}</span>
+                                    <span>{confirmation?.checkInName || (confirmation ? `${confirmation.guest.firstName} ${confirmation.guest.lastName}` : "")}</span>
                                 </div>
+                                {confirmation?.additionalGuestNames && (
+                                    <div className="flex justify-between">
+                                        <span className="font-semibold">Additional Guests</span>
+                                        <span>{confirmation.additionalGuestNames}</span>
+                                    </div>
+                                )}
                                 {confirmation?.checkInName && (
                                     <div className="flex justify-between">
                                         <span className="font-semibold">Check-in Name</span>
@@ -966,30 +966,6 @@ const PublicSite: React.FC = () => {
 
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">First Name</label>
-                                            <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={guestDetails.firstName} onChange={e => setGuestDetails({...guestDetails, firstName: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Last Name</label>
-                                            <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={guestDetails.lastName} onChange={e => setGuestDetails({...guestDetails, lastName: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email Address</label>
-                                            <input
-                                                className="border p-2 w-full rounded outline-none focus:border-primary-500"
-                                                value={guestDetails.email}
-                                                onChange={e => setGuestDetails({ ...guestDetails, email: e.target.value })}
-                                                disabled={!!guestEmail}
-                                            />
-                                            {guestEmail && (
-                                                <p className="text-xs text-gray-500 mt-1">Email is linked to your guest account.</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone Number</label>
-                                            <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={guestDetails.phone} onChange={e => setGuestDetails({...guestDetails, phone: e.target.value})} />
-                                        </div>
-                                        <div>
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Check-in Name</label>
                                             <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={checkInName} onChange={e => setCheckInName(e.target.value)} />
                                         </div>
@@ -997,6 +973,9 @@ const PublicSite: React.FC = () => {
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Guest Names</label>
                                             <input className="border p-2 w-full rounded outline-none focus:border-primary-500" placeholder="e.g. John Smith, Maria Rossi" value={additionalGuestNames} onChange={e => setAdditionalGuestNames(e.target.value)} />
                                         </div>
+                                        {guestProfileName && (
+                                            <p className="text-xs text-gray-500">Default check-in name is your account name: {guestProfileName}</p>
+                                        )}
                                     </div>
 
                                     <button 
