@@ -279,4 +279,15 @@ router.delete("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// Permanently delete booking
+router.delete("/:id/hard", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.booking.delete({ where: { id: parseInt(id) } });
+    res.json({ message: "Booking deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete booking", error });
+  }
+});
+
 export default router;

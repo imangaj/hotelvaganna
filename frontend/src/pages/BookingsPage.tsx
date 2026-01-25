@@ -150,6 +150,21 @@ const BookingsPage: React.FC = () => {
     }
   };
 
+  const handleDeleteBooking = async (id: number) => {
+    if (!window.confirm("Delete this reservation permanently?")) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await bookingAPI.deletePermanent(id);
+      await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to delete booking.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("it-IT", {
       timeZone: "Europe/Rome",
@@ -540,6 +555,12 @@ const BookingsPage: React.FC = () => {
                           {t("bk_action_cancel")}
                         </button>
                       )}
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleDeleteBooking(booking.id)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>

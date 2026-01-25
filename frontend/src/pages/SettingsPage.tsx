@@ -83,6 +83,8 @@ const SettingsPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [loadingStaff, setLoadingStaff] = useState(false);
     const [newStaff, setNewStaff] = useState({ name: "", email: "", password: "", role: "RECEPTION" });
+    const [editingUserId, setEditingUserId] = useState<number | null>(null);
+    const [editStaff, setEditStaff] = useState({ name: "", email: "", role: "RECEPTION" });
 
     const canManageStaff = ["ADMIN", "MANAGER"].includes(currentUserRole);
     const roleLabel = (role: string) => {
@@ -153,6 +155,42 @@ const SettingsPage: React.FC = () => {
         } catch (error) {
             console.error("Failed to delete user", error);
             alert("Failed to delete user.");
+        }
+    };
+
+    const handleEditUser = (user: User) => {
+        setEditingUserId(user.id);
+        setEditStaff({ name: user.name, email: user.email, role: user.role });
+    };
+
+    const handleUpdateUser = async (id: number) => {
+        if (!canManageStaff) {
+            alert("Access denied");
+            return;
+        }
+        try {
+            await userAPI.update(id, editStaff);
+            setEditingUserId(null);
+            fetchUsers();
+        } catch (error) {
+            console.error("Failed to update user", error);
+            alert("Failed to update user.");
+        }
+    };
+
+    const handleResetPassword = async (id: number) => {
+        if (!canManageStaff) {
+            alert("Access denied");
+            return;
+        }
+        const newPassword = window.prompt("Enter new password for this user:");
+        if (!newPassword) return;
+        try {
+            await userAPI.update(id, { password: newPassword });
+            alert("Password reset successfully.");
+        } catch (error) {
+            console.error("Failed to reset password", error);
+            alert("Failed to reset password.");
         }
     };
 
@@ -632,14 +670,48 @@ const SettingsPage: React.FC = () => {
                             <tbody>
                                 {users.map(u => (
                                     <tr key={u.id} className="hover:bg-gray-50">
-                                        <td className="p-3 border-b">{u.name}</td>
-                                        <td className="p-3 border-b">{u.email}</td>
-                                        <td className="p-3 border-b"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold">{roleLabel(u.role)}</span></td>
+                                        <td className="p-3 border-b">
+                                            {editingUserId === u.id ? (
+                                                <input className="border p-1 rounded text-sm" value={editStaff.name} onChange={e => setEditStaff({ ...editStaff, name: e.target.value })} />
+                                            ) : (
+                                                u.name
+                                            )}
+                                        </td>
+                                        <td className="p-3 border-b">
+                                            {editingUserId === u.id ? (
+                                                <input className="border p-1 rounded text-sm" value={editStaff.email} onChange={e => setEditStaff({ ...editStaff, email: e.target.value })} />
+                                            ) : (
+                                                u.email
+                                            )}
+                                        </td>
+                                        <td className="p-3 border-b">
+                                            {editingUserId === u.id ? (
+                                                <select className="border p-1 rounded text-sm" value={editStaff.role} onChange={e => setEditStaff({ ...editStaff, role: e.target.value })}>
+                                                    <option value="RECEPTION">{t("role_reception")}</option>
+                                                    <option value="CLEANER">{t("role_cleaner")}</option>
+                                                    <option value="MANAGER">{t("role_manager")}</option>
+                                                    <option value="ADMIN">{t("role_admin")}</option>
+                                                </select>
+                                            ) : (
+                                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold">{roleLabel(u.role)}</span>
+                                            )}
+                                        </td>
                                         <td className="p-3 border-b">
                                             {u.isActive ? <span className="text-green-600 font-bold">{t("staff_active")}</span> : <span className="text-red-600">{t("staff_inactive")}</span>}
                                         </td>
                                         <td className="p-3 border-b text-right">
-                                            <button className="text-red-600 hover:text-red-800 text-sm font-bold" onClick={() => handleDeleteUser(u.id)}>{t("staff_remove")}</button>
+                                            {editingUserId === u.id ? (
+                                                <>
+                                                    <button className="text-green-600 hover:text-green-800 text-sm font-bold mr-3" onClick={() => handleUpdateUser(u.id)}>Save</button>
+                                                    <button className="text-gray-600 hover:text-gray-800 text-sm font-bold mr-3" onClick={() => setEditingUserId(null)}>Cancel</button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button className="text-blue-600 hover:text-blue-800 text-sm font-bold mr-3" onClick={() => handleEditUser(u)}>Edit</button>
+                                                    <button className="text-purple-600 hover:text-purple-800 text-sm font-bold mr-3" onClick={() => handleResetPassword(u.id)}>Reset Password</button>
+                                                    <button className="text-red-600 hover:text-red-800 text-sm font-bold" onClick={() => handleDeleteUser(u.id)}>{t("staff_remove")}</button>
+                                                </>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

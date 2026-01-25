@@ -46,6 +46,7 @@ export const bookingAPI = {
   updateStatus: (id: number, bookingStatus?: string, paymentStatus?: string, roomId?: number) =>
     apiClient.put(`/bookings/${id}/status`, { bookingStatus, paymentStatus, roomId }),
   cancel: (id: number) => apiClient.delete(`/bookings/${id}`),
+  deletePermanent: (id: number) => apiClient.delete(`/bookings/${id}/hard`),
 };
 
 export const guestAPI = {
