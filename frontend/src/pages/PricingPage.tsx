@@ -335,7 +335,7 @@ const PricingPage: React.FC = () => {
         {saveStatus && <span className={`text-sm font-bold ${saveStatus.includes("Error") ? "text-red-500" : "text-green-600"}`}>{saveStatus}</span>}
       </div>
 
-      <div className="flex gap-4 mb-6 items-end bg-white p-4 rounded shadow-sm">
+      <div className="pricing-filters flex gap-4 mb-6 items-end bg-white p-4 rounded shadow-sm">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Property</label>
           <select 

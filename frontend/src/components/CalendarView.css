@@ -237,6 +237,36 @@
 .source-email { background: #f39c12; }
 .source-walkin { background: #27ae60; }
 
+@media (max-width: 768px) {
+    .calendar-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .daily-stats {
+        width: 100%;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .room-card-admin {
+        min-height: auto;
+    }
+
+    .booking-extras {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .booking-details-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+}
+
 
 /* Modal Styles */
 .booking-modal-overlay {

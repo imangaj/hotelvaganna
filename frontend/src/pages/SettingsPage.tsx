@@ -328,7 +328,7 @@ const SettingsPage: React.FC = () => {
     <h1 className="text-2xl font-bold mb-6 text-gray-800">{t("settings_title")}</h1>
 
       {/* Tabs */}
-      <div className="flex border-b mb-6 bg-white rounded-t-lg overflow-hidden">
+    <div className="settings-tabs flex border-b mb-6 bg-white rounded-t-lg">
         <button 
             className={`px-6 py-3 font-medium transition-colors ${activeTab === "general" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`} 
             onClick={() => setActiveTab("general")}
