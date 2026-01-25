@@ -78,14 +78,17 @@ const PublicSite: React.FC = () => {
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [rulesAccepted, setRulesAccepted] = useState(false);
   const [guestDetails, setGuestDetails] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+    const [checkInName, setCheckInName] = useState("");
   const [bookingStatus, setBookingStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [bookingStep, setBookingStep] = useState(1);
   const [wantsBreakfast, setWantsBreakfast] = useState(false);
   const [wantsParking, setWantsParking] = useState(false);
     const [guestToken, setGuestToken] = useState<string | null>(localStorage.getItem("guestToken"));
     const [guestEmail, setGuestEmail] = useState<string>("");
+    const [guestProfileName, setGuestProfileName] = useState<string>("");
     const [confirmation, setConfirmation] = useState<null | {
         guest: { firstName: string; lastName: string; email: string; phone: string };
+        checkInName?: string;
         checkIn: string;
         checkOut: string;
         bookedAt: string;
@@ -154,6 +157,7 @@ const PublicSite: React.FC = () => {
                         source: "website",
                         totalPrice: thisBookingTotal,
                         paidAmount: thisBookingTotal,
+                        notes: pending.checkInName ? `Check-in guest: ${pending.checkInName}` : undefined,
                         status: "confirmed",
                     });
 
@@ -163,6 +167,7 @@ const PublicSite: React.FC = () => {
 
                 setConfirmation({
                     guest: { ...pending.guestDetails },
+                    checkInName: pending.checkInName,
                     checkIn: pending.checkIn,
                     checkOut: pending.checkOut,
                     bookedAt: new Date().toISOString(),
@@ -198,8 +203,18 @@ const PublicSite: React.FC = () => {
             try {
                 const res = await guestAuthAPI.me(guestToken);
                 const email = res.data?.email || "";
+                const firstName = res.data?.firstName || "";
+                const lastName = res.data?.lastName || "";
+                const phone = res.data?.phone || "";
                 setGuestEmail(email);
-                setGuestDetails((prev) => ({ ...prev, email }));
+                setGuestProfileName(`${firstName} ${lastName}`.trim());
+                setGuestDetails((prev) => ({
+                    ...prev,
+                    email,
+                    firstName: prev.firstName || firstName,
+                    lastName: prev.lastName || lastName,
+                    phone: prev.phone || phone,
+                }));
             } catch (err) {
                 console.error(err);
             }
@@ -298,7 +313,7 @@ const PublicSite: React.FC = () => {
   };
 
   const goToPayment = () => {
-      if (!guestDetails.firstName || !guestDetails.lastName || !guestDetails.email || !guestDetails.phone) {
+      if (!guestDetails.firstName || !guestDetails.lastName || !guestDetails.email || !guestDetails.phone || !checkInName) {
           alert("Please fill in all guest details.");
           return;
       }
@@ -320,7 +335,7 @@ const PublicSite: React.FC = () => {
           window.location.href = "/guest";
           return;
       }
-      if (!selectedRoomType || !guestDetails.firstName || !guestDetails.email || !guestDetails.phone) {
+      if (!selectedRoomType || !guestDetails.firstName || !guestDetails.email || !guestDetails.phone || !checkInName) {
           alert("Please fill in all guest details including phone number.");
           return;
       }
@@ -353,6 +368,7 @@ const PublicSite: React.FC = () => {
 
           const pending = {
               guestDetails,
+              checkInName,
               checkIn,
               checkOut,
               roomTypeName: selectedRoomType?.name || "",
@@ -556,7 +572,13 @@ const PublicSite: React.FC = () => {
                 {profile.contentJson?.map?.show !== false && <a href="#location" className="hover:text-gold-500 transition-colors">{t('nav_location')}</a>}
                 <a href="/guest" className="hover:text-gold-500 transition-colors">My Reservation</a>
             </nav>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+                {guestProfileName && (
+                    <span className="hidden sm:inline text-sm text-gray-600">Hi, {guestProfileName}</span>
+                )}
+                <a href="/guest" className="md:hidden text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900">
+                    My Reservation
+                </a>
                 <LanguageSelector />
                 <button className="px-6 py-2 text-white text-sm font-bold tracking-wider uppercase transition-transform hover:scale-105" style={{ backgroundColor: profile.secondaryColor }}>
                     {t('nav_book_now')}
@@ -818,6 +840,12 @@ const PublicSite: React.FC = () => {
                                     <span className="font-semibold">Guest</span>
                                     <span>{confirmation ? `${confirmation.guest.firstName} ${confirmation.guest.lastName}` : ""}</span>
                                 </div>
+                                {confirmation?.checkInName && (
+                                    <div className="flex justify-between">
+                                        <span className="font-semibold">Check-in Name</span>
+                                        <span>{confirmation.checkInName}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between">
                                     <span className="font-semibold">Dates</span>
                                     <span>{confirmation ? new Date(confirmation.checkIn).toLocaleDateString() : ""} — {confirmation ? new Date(confirmation.checkOut).toLocaleDateString() : ""}</span>
@@ -947,6 +975,10 @@ const PublicSite: React.FC = () => {
                                         <div>
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone Number</label>
                                             <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={guestDetails.phone} onChange={e => setGuestDetails({...guestDetails, phone: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Check-in Name</label>
+                                            <input className="border p-2 w-full rounded outline-none focus:border-primary-500" value={checkInName} onChange={e => setCheckInName(e.target.value)} />
                                         </div>
                                     </div>
 

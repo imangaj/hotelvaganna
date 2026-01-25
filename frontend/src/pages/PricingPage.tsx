@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { propertyAPI, ratesAPI } from "../api/endpoints";
 
 interface Property {
@@ -87,10 +87,27 @@ const PricingPage: React.FC = () => {
   };
 
   // Process data for Grid
-  // 1. Get Room Types
-  const roomTypesMap = new Map<number, string>();
-  ratesData.forEach(r => roomTypesMap.set(r.roomTypeId, r.roomTypeName));
-  const roomTypeIds = Array.from(roomTypesMap.keys());
+  // 1. Group Room Types by normalized name to avoid duplicate rows (e.g., multiple "Singola")
+  const roomTypeGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; name: string; ids: number[] }>();
+
+    ratesData.forEach((rate) => {
+      const rawName = (rate.roomTypeName || "").trim();
+      const key = rawName ? rawName.toLowerCase() : `type-${rate.roomTypeId}`;
+      const name = rawName || `Room Type ${rate.roomTypeId}`;
+
+      const existing = groups.get(key);
+      if (existing) {
+        if (!existing.ids.includes(rate.roomTypeId)) {
+          existing.ids.push(rate.roomTypeId);
+        }
+      } else {
+        groups.set(key, { key, name, ids: [rate.roomTypeId] });
+      }
+    });
+
+    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [ratesData]);
 
   // 2. Generate Dates Array
   const dates = Array.from({ length: 14 }).map((_, i) => {
@@ -100,12 +117,34 @@ const PricingPage: React.FC = () => {
   });
 
   // 3. Lookup Helper
-  const getRate = (roomTypeId: number, date: string) => {
+  const getRateById = (roomTypeId: number, date: string) => {
     return ratesData.find(r => r.roomTypeId === roomTypeId && r.date === date);
   };
 
+  const getGroupRate = (roomTypeIds: number[], date: string) => {
+    const groupRates = roomTypeIds
+      .map((id) => getRateById(id, date))
+      .filter(Boolean) as RateData[];
+
+    if (groupRates.length === 0) return null;
+
+    const primary = groupRates[0];
+    const isClosed = groupRates.every((r) => r.isClosed);
+    const enableBreakfast = groupRates.every((r) => r.enableBreakfast);
+    const isOverride = groupRates.some((r) => r.isOverride);
+    const hasInventoryOverride = groupRates.some((r) => r.hasInventoryOverride);
+
+    return {
+      ...primary,
+      isClosed,
+      enableBreakfast,
+      isOverride,
+      hasInventoryOverride,
+    };
+  };
+
   // 4. Update Handler
-  const handlePriceUpdate = async (roomTypeId: number, date: string, newPrice: string) => {
+  const handlePriceUpdate = async (roomTypeIds: number[], date: string, newPrice: string) => {
     // If empty, do nothing or reset to 0? Let's assume numeric input only.
     if (newPrice.trim() === "") return; // Don't save empty string
 
@@ -114,15 +153,18 @@ const PricingPage: React.FC = () => {
 
     // Optimistic Update
     setRatesData(prev => prev.map(r => 
-        (r.roomTypeId === roomTypeId && r.date === date) 
-        ? { ...r, price, isOverride: true }
-        : r
+      (roomTypeIds.includes(r.roomTypeId) && r.date === date) 
+      ? { ...r, price, isOverride: true }
+      : r
     ));
 
     // API Call
     try {
         setSaveStatus("Saving...");
-        await ratesAPI.update(Number(selectedProperty), [{ roomTypeId, date, price }]);
+        await ratesAPI.update(
+          Number(selectedProperty),
+          roomTypeIds.map((id) => ({ roomTypeId: id, date, price }))
+        );
         setSaveStatus("Saved");
         setTimeout(() => setSaveStatus(""), 2000);
     } catch (e) {
@@ -133,7 +175,7 @@ const PricingPage: React.FC = () => {
     }
   };
 
-  const handleInventoryUpdate = async (roomTypeId: number, date: string, newCount: string) => {
+  const handleInventoryUpdate = async (roomTypeIds: number[], date: string, newCount: string) => {
     // If empty string, maybe we want to reset to null? 
     // Backend expects number or null if we supported that. 
     // For now, let's assume they type a number. If they delete it, we might want to reset override.
@@ -146,7 +188,7 @@ const PricingPage: React.FC = () => {
     }
 
     setRatesData(prev => prev.map(r => 
-        (r.roomTypeId === roomTypeId && r.date === date) 
+        (roomTypeIds.includes(r.roomTypeId) && r.date === date) 
         ? { 
             ...r, 
             totalRooms: count !== null ? count : r.totalPhysical, 
@@ -159,14 +201,17 @@ const PricingPage: React.FC = () => {
         setSaveStatus("Saving...");
         // If count is null, we send empty string or special value? 
         // Backend expects 'availableCount' in payload.
-        await ratesAPI.update(Number(selectedProperty), [{ 
-            roomTypeId, 
-            date, 
+        await ratesAPI.update(
+          Number(selectedProperty),
+          roomTypeIds.map((id) => ({
+            roomTypeId: id,
+            date,
             // We only want to update inventory here. But upsert requires price if new.
             // But we have the current price in state!
-            price: getRate(roomTypeId, date)?.price || 0,
+            price: getRateById(id, date)?.price || 0,
             availableCount: count !== null ? count : "" // Send empty string for reset? Backend handles it?
-        }]);
+          }))
+        );
         setSaveStatus("Saved");
         setTimeout(() => setSaveStatus(""), 2000);
     } catch (e) {
@@ -176,21 +221,24 @@ const PricingPage: React.FC = () => {
     }
   };
 
-  const handleToggleUpdate = async (roomTypeId: number, date: string, field: 'isClosed' | 'enableBreakfast', value: boolean) => {
+  const handleToggleUpdate = async (roomTypeIds: number[], date: string, field: 'isClosed' | 'enableBreakfast', value: boolean) => {
     setRatesData(prev => prev.map(r => 
-        (r.roomTypeId === roomTypeId && r.date === date) 
+        (roomTypeIds.includes(r.roomTypeId) && r.date === date) 
         ? { ...r, [field]: value }
         : r
     ));
 
     try {
         setSaveStatus("Saving...");
-        await ratesAPI.update(Number(selectedProperty), [{ 
-            roomTypeId, 
-            date, 
-            price: getRate(roomTypeId, date)?.price || 0,
+        await ratesAPI.update(
+          Number(selectedProperty),
+          roomTypeIds.map((id) => ({
+            roomTypeId: id,
+            date,
+            price: getRateById(id, date)?.price || 0,
             [field]: value 
-        }]);
+          }))
+        );
         setSaveStatus("Saved");
         setTimeout(() => setSaveStatus(""), 2000);
     } catch (e) {
@@ -214,9 +262,10 @@ const PricingPage: React.FC = () => {
             if (bulkForm.daysOfWeek[curr.getDay()]) {
                 const dateStr = curr.toISOString().split("T")[0];
                 
+                const selectedGroup = roomTypeGroups.find((g) => g.key === bulkForm.roomTypeId);
                 const typeIds = bulkForm.roomTypeId === "all" 
-                    ? roomTypeIds 
-                    : [parseInt(bulkForm.roomTypeId)];
+                  ? roomTypeGroups.flatMap((g) => g.ids)
+                  : (selectedGroup?.ids || []);
                 
                 typeIds.forEach(tid => {
                     const update: any = {
@@ -261,15 +310,17 @@ const PricingPage: React.FC = () => {
 
   // 5. Calculate Totals
   const getTotalBooked = (date: string) => {
-    return ratesData
-        .filter(r => r.date === date)
-        .reduce((sum, r) => sum + r.bookedRooms, 0);
+    return roomTypeGroups.reduce((sum, group) => {
+      const data = getGroupRate(group.ids, date);
+      return sum + (data?.bookedRooms || 0);
+    }, 0);
   };
   
   const getTotalRooms = (date: string) => {
-    return ratesData
-        .filter(r => r.date === date)
-        .reduce((sum, r) => sum + r.totalRooms, 0);
+    return roomTypeGroups.reduce((sum, group) => {
+      const data = getGroupRate(group.ids, date);
+      return sum + (data?.totalRooms || 0);
+    }, 0);
    };
 
   const formatDateLabel = (dateStr: string) => {
@@ -336,8 +387,8 @@ const PricingPage: React.FC = () => {
                             onChange={(e) => setBulkForm({...bulkForm, roomTypeId: e.target.value})}
                         >
                             <option value="all">All Categories</option>
-                            {roomTypeIds.map(id => (
-                                <option key={id} value={id}>{roomTypesMap.get(id)}</option>
+                            {roomTypeGroups.map(group => (
+                              <option key={group.key} value={group.key}>{group.name}</option>
                             ))}
                         </select>
                     </div>
@@ -448,8 +499,8 @@ const PricingPage: React.FC = () => {
       {loading && ratesData.length === 0 ? (
         <div className="text-center py-10 text-gray-500">Loading rates...</div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded shadow-lg border border-gray-200">
-          <table className="min-w-full border-collapse">
+        <div className="table-container pricing-table-container bg-white rounded shadow-lg border border-gray-200">
+          <table className="min-w-full border-collapse pricing-table">
             <thead>
               <tr>
                 <th className="sticky left-0 bg-gray-50 z-10 p-3 border-b border-r min-w-[200px] text-left text-sm font-bold text-gray-700">Room Category</th>
@@ -461,16 +512,16 @@ const PricingPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {roomTypeIds.map(typeId => (
-                <tr key={typeId} className="hover:bg-gray-50 group-row">
+              {roomTypeGroups.map((group) => (
+                <tr key={group.key} className="hover:bg-gray-50 group-row">
                   <td className="sticky left-0 bg-white z-10 p-4 border-b border-r font-bold text-gray-800 shadow-sm">
-                    {roomTypesMap.get(typeId)}
+                    {group.name}
                     <div className="text-xs text-gray-500 mt-1 font-normal">
                          Base Price & Occupancy
                     </div>
                   </td>
                   {dates.map(date => {
-                    const data = getRate(typeId, date);
+                    const data = getGroupRate(group.ids, date);
                     if (!data) return <td key={date} className="p-4 border-b border-r text-center text-gray-400 bg-gray-50">-</td>;
                     
                     const percent = data.totalRooms > 0 ? (data.bookedRooms / data.totalRooms) * 100 : 0;
@@ -486,10 +537,14 @@ const PricingPage: React.FC = () => {
                               type="number" 
                               className={`w-full text-center border rounded p-1 pl-3 text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none ${data.isOverride ? "bg-amber-50 border-amber-300 text-amber-900" : "border-gray-200"}`}
                               value={data.price}
-                              onBlur={(e) => handlePriceUpdate(typeId, date, e.target.value)}
+                              onBlur={(e) => handlePriceUpdate(group.ids, date, e.target.value)}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value);
-                                setRatesData(prev => prev.map(r => r === data ? { ...r, price: isNaN(val) ? 0 : val } : r));
+                                setRatesData(prev => prev.map(r => 
+                                  (group.ids.includes(r.roomTypeId) && r.date === date)
+                                    ? { ...r, price: isNaN(val) ? 0 : val }
+                                    : r
+                                ));
                               }}
                             />
                           </div>
@@ -500,11 +555,15 @@ const PricingPage: React.FC = () => {
                                 type="number"
                                 className={`w-8 text-center border-b ${data.hasInventoryOverride ? 'font-bold text-blue-600 border-blue-400' : 'border-gray-300'}`}
                                 value={data.totalRooms}
-                                onBlur={(e) => handleInventoryUpdate(typeId, date, e.target.value)}
+                                onBlur={(e) => handleInventoryUpdate(group.ids, date, e.target.value)}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value);
                                     if (!isNaN(val)) {
-                                        setRatesData(prev => prev.map(r => r === data ? { ...r, totalRooms: val, hasInventoryOverride: true } : r));
+                                    setRatesData(prev => prev.map(r => 
+                                      (group.ids.includes(r.roomTypeId) && r.date === date)
+                                      ? { ...r, totalRooms: val, hasInventoryOverride: true }
+                                      : r
+                                    ));
                                     }
                                 }}
                              />
@@ -515,14 +574,14 @@ const PricingPage: React.FC = () => {
                            <div className="flex gap-2 mt-1">
                                 <button 
                                     className={`text-xs px-1 rounded border ${data.isClosed ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'}`}
-                                    onClick={() => handleToggleUpdate(typeId, date, 'isClosed', !data.isClosed)}
+                                  onClick={() => handleToggleUpdate(group.ids, date, 'isClosed', !data.isClosed)}
                                     title={data.isClosed ? "Room Closed (Stop Sell)" : "Room Open"}
                                 >
                                     {data.isClosed ? "Closed" : "Open"}
                                 </button>
                                 <button 
                                     className={`text-xs px-1 rounded border ${data.enableBreakfast ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}
-                                    onClick={() => handleToggleUpdate(typeId, date, 'enableBreakfast', !data.enableBreakfast)}
+                                  onClick={() => handleToggleUpdate(group.ids, date, 'enableBreakfast', !data.enableBreakfast)}
                                     title="Toggle Breakfast"
                                 >
                                     ☕

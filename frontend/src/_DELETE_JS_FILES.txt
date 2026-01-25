@@ -1,0 +1,24 @@
+Delete the following .js files from frontend/src and its subfolders, as they duplicate .tsx files and cause TypeScript build errors:
+
+main.js
+App.js
+public/PublicSite.js
+pages/CheckInOutPage.js
+pages/BookingsPage.js
+pages/AnalyticsPage.js
+pages/GuestsPage.js
+components/AdminDashboard.js
+components/BookingForm.js
+pages/PricingPage.js
+pages/MaintenancePage.js
+pages/PropertiesPage.js
+components/AvailabilitySearch.js
+pages/HousekeepingPage.js
+components/AuthPage.js
+components/RoomsSettings.js
+pages/SettingsPage.js
+pages/RoomsPage.js
+components/CalendarView.js
+api/endpoints.js
+
+Only delete these if you have .tsx versions for each component/page.

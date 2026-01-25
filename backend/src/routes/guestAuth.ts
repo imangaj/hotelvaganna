@@ -12,10 +12,10 @@ const GUEST_JWT_SECRET = process.env.GUEST_JWT_SECRET || process.env.JWT_SECRET 
 
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, firstName, lastName, phone } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+    if (!email || !password || !firstName || !lastName || !phone) {
+      return res.status(400).json({ message: "Email, password, first name, last name, and phone are required" });
     }
 
     const existing = await prisma.guestAccount.findUnique({ where: { email } });
@@ -25,7 +25,7 @@ router.post("/register", async (req: Request, res: Response) => {
 
     const passwordHash = await bcryptjs.hash(password, 10);
     const account = await prisma.guestAccount.create({
-      data: { email, passwordHash },
+      data: { email, passwordHash, firstName, lastName, phone },
     });
 
     const token = jwt.sign({ email: account.email }, GUEST_JWT_SECRET, { expiresIn: "7d" } as any);
@@ -33,7 +33,7 @@ router.post("/register", async (req: Request, res: Response) => {
     return res.json({
       message: "Guest account created",
       token,
-      guest: { email: account.email },
+      guest: { email: account.email, firstName: account.firstName, lastName: account.lastName, phone: account.phone },
     });
   } catch (error) {
     return res.status(500).json({ message: "Registration failed", error });
@@ -63,7 +63,7 @@ router.post("/login", async (req: Request, res: Response) => {
     return res.json({
       message: "Login successful",
       token,
-      guest: { email: account.email },
+      guest: { email: account.email, firstName: account.firstName, lastName: account.lastName, phone: account.phone },
     });
   } catch (error) {
     return res.status(500).json({ message: "Login failed", error });
@@ -125,7 +125,14 @@ router.get("/me", requireGuestAuth, async (req: GuestAuthRequest, res: Response)
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  return res.json({ email });
+  const account = await prisma.guestAccount.findUnique({ where: { email } });
+
+  return res.json({
+    email,
+    firstName: account?.firstName || "",
+    lastName: account?.lastName || "",
+    phone: account?.phone || "",
+  });
 });
 
 // Request password reset (send email with token)

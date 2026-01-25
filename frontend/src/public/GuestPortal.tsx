@@ -25,10 +25,14 @@ const GuestPortal: React.FC = () => {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [authError, setAuthError] = useState("");
   const [token, setToken] = useState<string | null>(localStorage.getItem("guestToken"));
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [reservationFilter, setReservationFilter] = useState<"upcoming" | "past">("upcoming");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -74,12 +78,18 @@ const GuestPortal: React.FC = () => {
       return;
     }
 
+    if (authMode === "register" && (!firstName || !lastName || !phone)) {
+      setAuthError("First name, last name, and phone are required.");
+      return;
+    }
+
     try {
       const res = authMode === "login"
         ? await guestAuthAPI.login({ email, password })
-        : await guestAuthAPI.register({ email, password });
+        : await guestAuthAPI.register({ email, password, firstName, lastName, phone });
 
       const newToken = res.data?.token;
+      const guestProfile = res.data?.guest;
       if (!newToken) {
         setAuthError("Login failed.");
         return;
@@ -87,6 +97,11 @@ const GuestPortal: React.FC = () => {
       localStorage.setItem("guestToken", newToken);
       setToken(newToken);
       setPassword("");
+      if (guestProfile) {
+        setFirstName(guestProfile.firstName || "");
+        setLastName(guestProfile.lastName || "");
+        setPhone(guestProfile.phone || "");
+      }
     } catch (error: any) {
       setAuthError(error.response?.data?.message || "Login failed.");
     }
@@ -100,6 +115,36 @@ const GuestPortal: React.FC = () => {
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
+
+  const guestName = useMemo(() => {
+    const fromBooking = bookings.find((b) => b.guest?.firstName || b.guest?.lastName)?.guest;
+    if (fromBooking?.firstName || fromBooking?.lastName) {
+      return `${fromBooking.firstName || ""} ${fromBooking.lastName || ""}`.trim();
+    }
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim();
+    }
+    return email || "Guest";
+  }, [bookings, email, firstName, lastName]);
+
+  const todayStart = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }, []);
+
+  const upcomingReservations = useMemo(() => {
+    return bookings.filter((booking) => {
+      const checkOut = new Date(booking.checkOutDate).getTime();
+      return checkOut >= todayStart;
+    });
+  }, [bookings, todayStart]);
+
+  const pastReservations = useMemo(() => {
+    return bookings.filter((booking) => {
+      const checkOut = new Date(booking.checkOutDate).getTime();
+      return checkOut < todayStart;
+    });
+  }, [bookings, todayStart]);
 
   const handlePrint = (booking: Booking) => {
     const printWindow = window.open("", "_blank");
@@ -200,6 +245,37 @@ const GuestPortal: React.FC = () => {
             </div>
 
             <form onSubmit={handleAuth} className="space-y-4">
+              {authMode === "register" && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">First Name</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded px-3 py-2"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded px-3 py-2"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      className="w-full border rounded px-3 py-2"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Email</label>
                 <input
@@ -233,8 +309,11 @@ const GuestPortal: React.FC = () => {
           </div>
         ) : (
           <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">My Reservations</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div>
+                <div className="text-sm text-gray-500">Welcome</div>
+                <h2 className="text-2xl font-bold">{guestName}</h2>
+              </div>
               <button
                 onClick={() => token && loadBookings(token)}
                 className="text-sm text-gray-600 hover:text-gray-900"
@@ -243,13 +322,34 @@ const GuestPortal: React.FC = () => {
               </button>
             </div>
 
+            <div className="flex items-center gap-2 mb-6">
+              <button
+                type="button"
+                onClick={() => setReservationFilter("upcoming")}
+                className={`px-3 py-2 text-sm rounded ${reservationFilter === "upcoming" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
+              >
+                To Check In / Upcoming
+              </button>
+              <button
+                type="button"
+                onClick={() => setReservationFilter("past")}
+                className={`px-3 py-2 text-sm rounded ${reservationFilter === "past" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
+              >
+                Past
+              </button>
+            </div>
+
             {bookingsLoading ? (
               <div className="bg-white p-6 rounded-lg">Loading reservations...</div>
-            ) : bookings.length === 0 ? (
-              <div className="bg-white p-6 rounded-lg">No reservations found for this email.</div>
+            ) : (reservationFilter === "upcoming" ? upcomingReservations : pastReservations).length === 0 ? (
+              <div className="bg-white p-6 rounded-lg">
+                {reservationFilter === "upcoming"
+                  ? "No upcoming reservations found."
+                  : "No past reservations found."}
+              </div>
             ) : (
               <div className="space-y-4">
-                {bookings.map((booking) => (
+                {(reservationFilter === "upcoming" ? upcomingReservations : pastReservations).map((booking) => (
                   <div key={booking.id} className="bg-white p-6 rounded-lg shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -266,6 +366,14 @@ const GuestPortal: React.FC = () => {
                     </div>
 
                     <div className="mt-4 grid md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">Guest</div>
+                        <div className="font-medium">
+                          {(booking.guest?.firstName || booking.guest?.lastName)
+                            ? `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim()
+                            : guestName}
+                        </div>
+                      </div>
                       <div>
                         <div className="text-gray-500">Dates</div>
                         <div className="font-medium">{formatDate(booking.checkInDate)} — {formatDate(booking.checkOutDate)}</div>

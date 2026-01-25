@@ -125,7 +125,7 @@ export const publicAPI = {
 };
 
 export const guestAuthAPI = {
-  register: (data: { email: string; password: string }) =>
+  register: (data: { email: string; password: string; firstName: string; lastName: string; phone: string }) =>
     apiClient.post("/guest-auth/register", data),
   login: (data: { email: string; password: string }) =>
     apiClient.post("/guest-auth/login", data),

@@ -653,6 +653,9 @@
 .table-container {
   overflow-x: auto;
   margin-top: 20px;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
 }
 
 table {
@@ -660,6 +663,10 @@ table {
   border-collapse: collapse;
   font-size: 14px;
   background: white;
+}
+
+.table-container table {
+  min-width: 900px;
 }
 
 thead {
@@ -1231,6 +1238,11 @@ tbody tr:hover {
 
 .bookings-table {
   width: 100%;
+  min-width: 1000px;
+}
+
+.pricing-table {
+  min-width: 1200px;
 }
 
 /* Guests Page Styles */
