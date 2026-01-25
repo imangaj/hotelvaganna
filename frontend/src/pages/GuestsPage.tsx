@@ -27,6 +27,7 @@ const GuestsPage: React.FC = () => {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showDetails, setShowDetails] = useState<number | null>(null);
+  const [guestBookings, setGuestBookings] = useState<Record<number, any[]>>({});
   const [editingAccountId, setEditingAccountId] = useState<number | null>(null);
   const [editAccountEmail, setEditAccountEmail] = useState<string>("");
 
@@ -46,6 +47,7 @@ const GuestsPage: React.FC = () => {
       
       // Extract unique guests from bookings
       const uniqueGuests: { [key: string]: any } = {};
+      const bookingMap: Record<number, any[]> = {};
       (bookingsRes.data || []).forEach((booking: any) => {
         if (booking.guest) {
           uniqueGuests[booking.guest.id] = {
@@ -53,10 +55,15 @@ const GuestsPage: React.FC = () => {
             lastBookingDate: booking.checkInDate,
             totalStays: (uniqueGuests[booking.guest.id]?.totalStays || 0) + 1,
           };
+          if (!bookingMap[booking.guest.id]) {
+            bookingMap[booking.guest.id] = [];
+          }
+          bookingMap[booking.guest.id].push(booking);
         }
       });
 
       setGuests(Object.values(uniqueGuests));
+      setGuestBookings(bookingMap);
       setProperties(propertiesRes.data || []);
       setGuestAccounts(guestAccountsRes.data || []);
     } catch (err: any) {
@@ -242,7 +249,17 @@ const GuestsPage: React.FC = () => {
                 <div className="guest-history">
                   <h4>{t("guests_history")}</h4>
                   <div className="history-placeholder">
-                    <p>{t("guests_history_placeholder")}</p>
+                    {(guestBookings[guest.id] || []).length === 0 ? (
+                      <p>{t("guests_history_placeholder")}</p>
+                    ) : (
+                      <ul className="text-sm space-y-1">
+                        {(guestBookings[guest.id] || []).map((booking) => (
+                          <li key={booking.id}>
+                            #{booking.id} • {new Date(booking.checkInDate).toLocaleDateString()} → {new Date(booking.checkOutDate).toLocaleDateString()} • {booking.room?.roomNumber || booking.roomId} • {booking.bookingStatus}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </div>
               )}
