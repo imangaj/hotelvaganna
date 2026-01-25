@@ -3,7 +3,7 @@ import AuthPage from "./components/AuthPage";
 import AdminDashboard from "./components/AdminDashboard";
 import PublicSite from "./public/PublicSite";
 import GuestPortal from "./public/GuestPortal";
-cimport GuestForgotPassword from "./pages/GuestForgotPassword";
+import GuestForgotPassword from "./pages/GuestForgotPassword";
 import GuestResetPassword from "./pages/GuestResetPassword";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./styles/global.css";
