@@ -1,8 +1,10 @@
 // Re-compiling to ensure the fix is applied
 import axios, { AxiosInstance } from "axios";
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: "/api",
+  baseURL: apiBaseUrl,
   headers: {
     "Content-Type": "application/json",
   },
