@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import apiClient from "../api/apiClient";
 
 const GuestResetPassword: React.FC = () => {
   const [password, setPassword] = useState("");
@@ -25,7 +25,7 @@ const GuestResetPassword: React.FC = () => {
     }
     setLoading(true);
     try {
-      await axios.post("/api/guest-auth/reset-password", { token, password });
+      await apiClient.post("/guest-auth/reset-password", { token, password });
       setSuccess(true);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to reset password.");

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import apiClient from "../api/apiClient";
 
 const GuestForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -10,7 +10,7 @@ const GuestForgotPassword: React.FC = () => {
     e.preventDefault();
     setError("");
     try {
-      await axios.post("/api/guest-auth/forgot-password", { email });
+      await apiClient.post("/guest-auth/forgot-password", { email });
       setSent(true);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to send reset email.");
