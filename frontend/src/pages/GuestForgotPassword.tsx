@@ -21,7 +21,9 @@ const GuestForgotPassword: React.FC = () => {
     <div className="max-w-md mx-auto mt-20 p-6 bg-white rounded shadow">
       <h2 className="text-2xl font-bold mb-4">Forgot Password</h2>
       {sent ? (
-        <p className="text-green-600">If the email exists, a reset link has been sent.</p>
+        <p className="text-green-700 bg-green-50 border border-green-200 rounded p-3">
+          If the email exists, a reset link has been sent.
+        </p>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
@@ -33,7 +35,12 @@ const GuestForgotPassword: React.FC = () => {
             required
           />
           {error && <div className="text-red-600 text-sm">{error}</div>}
-          <button type="submit" className="w-full py-2 bg-primary-600 text-white rounded font-bold">Send Reset Link</button>
+          <button
+            type="submit"
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold"
+          >
+            Send Reset Link
+          </button>
         </form>
       )}
     </div>
