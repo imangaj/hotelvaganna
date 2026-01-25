@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { bookingAPI, propertyAPI, guestAccountAPI } from "../api/endpoints";
+import { bookingAPI, propertyAPI, guestAccountAPI, guestAPI } from "../api/endpoints";
 import { useLanguage } from "../contexts/LanguageContext";
 
 interface Guest {
@@ -28,8 +28,14 @@ const GuestsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDetails, setShowDetails] = useState<number | null>(null);
   const [guestBookings, setGuestBookings] = useState<Record<number, any[]>>({});
-  const [editingAccountId, setEditingAccountId] = useState<number | null>(null);
-  const [editAccountEmail, setEditAccountEmail] = useState<string>("");
+  const [editingGuestId, setEditingGuestId] = useState<number | null>(null);
+  const [editGuest, setEditGuest] = useState<Guest>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    country: "",
+  });
 
   useEffect(() => {
     loadData();
@@ -83,46 +89,60 @@ const GuestsPage: React.FC = () => {
     );
   });
 
-  const filteredGuestAccounts = guestAccounts.filter((account) =>
-    account.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleEditAccount = (account: GuestAccount) => {
-    setEditingAccountId(account.id);
-    setEditAccountEmail(account.email);
+  const handleEditGuest = (guest: Guest) => {
+    setEditingGuestId(guest.id || null);
+    setEditGuest({
+      id: guest.id,
+      firstName: guest.firstName,
+      lastName: guest.lastName,
+      email: guest.email,
+      phone: guest.phone || "",
+      country: guest.country || "",
+    });
   };
 
-  const handleUpdateAccount = async (id: number) => {
+  const handleUpdateGuest = async (id: number) => {
     try {
-      await guestAccountAPI.update(id, { email: editAccountEmail });
-      setEditingAccountId(null);
+      await guestAPI.update(id, {
+        firstName: editGuest.firstName,
+        lastName: editGuest.lastName,
+        email: editGuest.email,
+        phone: editGuest.phone,
+        country: editGuest.country,
+      });
+      setEditingGuestId(null);
       loadData();
     } catch (err) {
-      console.error("Failed to update guest account", err);
-      alert("Failed to update guest account");
+      console.error("Failed to update guest", err);
+      alert("Failed to update guest");
     }
   };
 
-  const handleResetGuestPassword = async (id: number) => {
+  const handleDeleteGuest = async (id: number) => {
+    if (!window.confirm("Delete this guest?")) return;
+    try {
+      await guestAPI.delete(id);
+      loadData();
+    } catch (err) {
+      console.error("Failed to delete guest", err);
+      alert("Failed to delete guest");
+    }
+  };
+
+  const handleResetGuestPasswordByEmail = async (email: string) => {
+    const account = guestAccounts.find((a) => a.email === email);
+    if (!account) {
+      alert("No guest account found for this email.");
+      return;
+    }
     const newPassword = window.prompt("Enter new password for this guest:");
     if (!newPassword) return;
     try {
-      await guestAccountAPI.resetPassword(id, newPassword);
+      await guestAccountAPI.resetPassword(account.id, newPassword);
       alert("Guest password reset successfully.");
     } catch (err) {
       console.error("Failed to reset guest password", err);
       alert("Failed to reset guest password");
-    }
-  };
-
-  const handleDeleteGuestAccount = async (id: number) => {
-    if (!window.confirm("Delete this guest account?")) return;
-    try {
-      await guestAccountAPI.delete(id);
-      loadData();
-    } catch (err) {
-      console.error("Failed to delete guest account", err);
-      alert("Failed to delete guest account");
     }
   };
 
@@ -147,60 +167,6 @@ const GuestsPage: React.FC = () => {
 
       {error && <div className="error-message">{error}</div>}
 
-      <div className="section">
-        <h3 className="text-lg font-bold mb-4">Guest Accounts</h3>
-        {filteredGuestAccounts.length === 0 ? (
-          <div className="empty-state">
-            <p>No guest accounts found.</p>
-          </div>
-        ) : (
-          <div className="table-container">
-            <table className="bookings-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Email</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredGuestAccounts.map((account) => (
-                  <tr key={account.id}>
-                    <td>#{account.id}</td>
-                    <td>
-                      {editingAccountId === account.id ? (
-                        <input
-                          className="border p-1 rounded text-sm"
-                          value={editAccountEmail}
-                          onChange={(e) => setEditAccountEmail(e.target.value)}
-                        />
-                      ) : (
-                        account.email
-                      )}
-                    </td>
-                    <td>{account.createdAt ? new Date(account.createdAt).toLocaleDateString() : "-"}</td>
-                    <td>
-                      {editingAccountId === account.id ? (
-                        <>
-                          <button className="btn btn-sm btn-success" onClick={() => handleUpdateAccount(account.id)}>Save</button>
-                          <button className="btn btn-sm btn-secondary" onClick={() => setEditingAccountId(null)}>Cancel</button>
-                        </>
-                      ) : (
-                        <>
-                          <button className="btn btn-sm btn-info" onClick={() => handleEditAccount(account)}>Edit</button>
-                          <button className="btn btn-sm btn-warning" onClick={() => handleResetGuestPassword(account.id)}>Reset Password</button>
-                          <button className="btn btn-sm btn-danger" onClick={() => handleDeleteGuestAccount(account.id)}>Delete</button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {filteredGuests.length === 0 ? (
         <div className="empty-state">
@@ -218,8 +184,8 @@ const GuestsPage: React.FC = () => {
               <div className="guest-info">
                 {editingGuestId === guest.id ? (
                   <div className="grid grid-cols-1 gap-2">
-                    <input className="border p-2 rounded" value={editGuest.firstName} onChange={(e) => setEditGuest({ ...editGuest, firstName: e.target.value })} placeholder={t("guests_first_name")} />
-                    <input className="border p-2 rounded" value={editGuest.lastName} onChange={(e) => setEditGuest({ ...editGuest, lastName: e.target.value })} placeholder={t("guests_last_name")} />
+                    <input className="border p-2 rounded" value={editGuest.firstName} onChange={(e) => setEditGuest({ ...editGuest, firstName: e.target.value })} placeholder="First name" />
+                    <input className="border p-2 rounded" value={editGuest.lastName} onChange={(e) => setEditGuest({ ...editGuest, lastName: e.target.value })} placeholder="Last name" />
                     <input className="border p-2 rounded" value={editGuest.email} onChange={(e) => setEditGuest({ ...editGuest, email: e.target.value })} placeholder={t("guests_email")} />
                     <input className="border p-2 rounded" value={editGuest.phone || ""} onChange={(e) => setEditGuest({ ...editGuest, phone: e.target.value })} placeholder={t("guests_phone")} />
                     <input className="border p-2 rounded" value={editGuest.country || ""} onChange={(e) => setEditGuest({ ...editGuest, country: e.target.value })} placeholder={t("guests_country")} />
