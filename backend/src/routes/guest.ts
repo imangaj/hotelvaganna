@@ -3,6 +3,19 @@ import { prisma } from "../db";
 
 const router = Router();
 
+// Get all guests
+router.get("/", async (_req: Request, res: Response) => {
+  try {
+    const guests = await prisma.guest.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(guests);
+  } catch (error) {
+    console.error("Guest fetch error:", error);
+    res.status(500).json({ message: "Failed to fetch guests", error: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
 // Create or return existing guest by email
 router.post("/", async (req: Request, res: Response) => {
   try {

@@ -50,6 +50,7 @@ export const bookingAPI = {
 };
 
 export const guestAPI = {
+  getAll: () => apiClient.get("/guests"),
   create: (data: {
     firstName: string;
     lastName: string;

@@ -45,30 +45,38 @@ const GuestsPage: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-      const [bookingsRes, propertiesRes, guestAccountsRes] = await Promise.all([
+      const [bookingsRes, propertiesRes, guestAccountsRes, guestsRes] = await Promise.all([
         bookingAPI.getAll(),
         propertyAPI.getAll(),
         guestAccountAPI.getAll(),
+        guestAPI.getAll(),
       ]);
-      
-      // Extract unique guests from bookings
-      const uniqueGuests: { [key: string]: any } = {};
+
       const bookingMap: Record<number, any[]> = {};
+      const staysByGuest: Record<number, { totalStays: number; lastBookingDate?: string }> = {};
+
       (bookingsRes.data || []).forEach((booking: any) => {
-        if (booking.guest) {
-          uniqueGuests[booking.guest.id] = {
-            ...booking.guest,
-            lastBookingDate: booking.checkInDate,
-            totalStays: (uniqueGuests[booking.guest.id]?.totalStays || 0) + 1,
-          };
+        if (booking.guest?.id) {
           if (!bookingMap[booking.guest.id]) {
             bookingMap[booking.guest.id] = [];
           }
           bookingMap[booking.guest.id].push(booking);
+
+          const existing = staysByGuest[booking.guest.id] || { totalStays: 0 };
+          staysByGuest[booking.guest.id] = {
+            totalStays: existing.totalStays + 1,
+            lastBookingDate: booking.checkInDate,
+          };
         }
       });
 
-      setGuests(Object.values(uniqueGuests));
+      const mergedGuests = (guestsRes.data || []).map((guest: any) => ({
+        ...guest,
+        totalStays: staysByGuest[guest.id]?.totalStays || 0,
+        lastBookingDate: staysByGuest[guest.id]?.lastBookingDate,
+      }));
+
+      setGuests(mergedGuests);
       setGuestBookings(bookingMap);
       setProperties(propertiesRes.data || []);
       setGuestAccounts(guestAccountsRes.data || []);
