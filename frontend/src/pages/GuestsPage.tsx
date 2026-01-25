@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { bookingAPI, propertyAPI } from "../api/endpoints";
+import { bookingAPI, propertyAPI, guestAccountAPI } from "../api/endpoints";
 import { useLanguage } from "../contexts/LanguageContext";
 
 interface Guest {
@@ -11,14 +11,24 @@ interface Guest {
   country?: string;
 }
 
+interface GuestAccount {
+  id: number;
+  email: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 const GuestsPage: React.FC = () => {
   const { t } = useLanguage();
   const [guests, setGuests] = useState<any[]>([]);
+  const [guestAccounts, setGuestAccounts] = useState<GuestAccount[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showDetails, setShowDetails] = useState<number | null>(null);
+  const [editingAccountId, setEditingAccountId] = useState<number | null>(null);
+  const [editAccountEmail, setEditAccountEmail] = useState<string>("");
 
   useEffect(() => {
     loadData();
@@ -28,9 +38,10 @@ const GuestsPage: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-      const [bookingsRes, propertiesRes] = await Promise.all([
+      const [bookingsRes, propertiesRes, guestAccountsRes] = await Promise.all([
         bookingAPI.getAll(),
         propertyAPI.getAll(),
+        guestAccountAPI.getAll(),
       ]);
       
       // Extract unique guests from bookings
@@ -47,6 +58,7 @@ const GuestsPage: React.FC = () => {
 
       setGuests(Object.values(uniqueGuests));
       setProperties(propertiesRes.data || []);
+      setGuestAccounts(guestAccountsRes.data || []);
     } catch (err: any) {
       console.error("Failed to load data:", err);
       setError(err.response?.data?.message || "Failed to load guests");
@@ -63,6 +75,49 @@ const GuestsPage: React.FC = () => {
       guest.email?.toLowerCase().includes(searchLower)
     );
   });
+
+  const filteredGuestAccounts = guestAccounts.filter((account) =>
+    account.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleEditAccount = (account: GuestAccount) => {
+    setEditingAccountId(account.id);
+    setEditAccountEmail(account.email);
+  };
+
+  const handleUpdateAccount = async (id: number) => {
+    try {
+      await guestAccountAPI.update(id, { email: editAccountEmail });
+      setEditingAccountId(null);
+      loadData();
+    } catch (err) {
+      console.error("Failed to update guest account", err);
+      alert("Failed to update guest account");
+    }
+  };
+
+  const handleResetGuestPassword = async (id: number) => {
+    const newPassword = window.prompt("Enter new password for this guest:");
+    if (!newPassword) return;
+    try {
+      await guestAccountAPI.resetPassword(id, newPassword);
+      alert("Guest password reset successfully.");
+    } catch (err) {
+      console.error("Failed to reset guest password", err);
+      alert("Failed to reset guest password");
+    }
+  };
+
+  const handleDeleteGuestAccount = async (id: number) => {
+    if (!window.confirm("Delete this guest account?")) return;
+    try {
+      await guestAccountAPI.delete(id);
+      loadData();
+    } catch (err) {
+      console.error("Failed to delete guest account", err);
+      alert("Failed to delete guest account");
+    }
+  };
 
   if (loading) {
     return <div className="loading">{t("guests_loading")}</div>;
@@ -84,6 +139,61 @@ const GuestsPage: React.FC = () => {
       </div>
 
       {error && <div className="error-message">{error}</div>}
+
+      <div className="section">
+        <h3 className="text-lg font-bold mb-4">Guest Accounts</h3>
+        {filteredGuestAccounts.length === 0 ? (
+          <div className="empty-state">
+            <p>No guest accounts found.</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="bookings-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Email</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredGuestAccounts.map((account) => (
+                  <tr key={account.id}>
+                    <td>#{account.id}</td>
+                    <td>
+                      {editingAccountId === account.id ? (
+                        <input
+                          className="border p-1 rounded text-sm"
+                          value={editAccountEmail}
+                          onChange={(e) => setEditAccountEmail(e.target.value)}
+                        />
+                      ) : (
+                        account.email
+                      )}
+                    </td>
+                    <td>{account.createdAt ? new Date(account.createdAt).toLocaleDateString() : "-"}</td>
+                    <td>
+                      {editingAccountId === account.id ? (
+                        <>
+                          <button className="btn btn-sm btn-success" onClick={() => handleUpdateAccount(account.id)}>Save</button>
+                          <button className="btn btn-sm btn-secondary" onClick={() => setEditingAccountId(null)}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="btn btn-sm btn-info" onClick={() => handleEditAccount(account)}>Edit</button>
+                          <button className="btn btn-sm btn-warning" onClick={() => handleResetGuestPassword(account.id)}>Reset Password</button>
+                          <button className="btn btn-sm btn-danger" onClick={() => handleDeleteGuestAccount(account.id)}>Delete</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {filteredGuests.length === 0 ? (
         <div className="empty-state">

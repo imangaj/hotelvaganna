@@ -18,6 +18,7 @@ import dashboardRoutes from "./routes/dashboard";
 import publicRoutes from "./routes/public";
 import userRoutes from "./routes/users";
 import guestAuthRoutes from "./routes/guestAuth";
+import guestAccountRoutes from "./routes/guestAccounts";
 import paymentsRoutes from "./routes/payments";
 
 dotenv.config();
@@ -86,6 +87,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/guest-auth", guestAuthRoutes);
+app.use("/api/guest-accounts", guestAccountRoutes);
 app.use("/api/payments", paymentsRoutes);
 
 // 404 handler

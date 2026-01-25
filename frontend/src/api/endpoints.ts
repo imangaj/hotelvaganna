@@ -59,6 +59,14 @@ export const guestAPI = {
   }) => apiClient.post("/guests", data),
 };
 
+export const guestAccountAPI = {
+  getAll: () => apiClient.get("/guest-accounts"),
+  update: (id: number, data: { email?: string }) => apiClient.put(`/guest-accounts/${id}`, data),
+  resetPassword: (id: number, password: string) =>
+    apiClient.post(`/guest-accounts/${id}/reset-password`, { password }),
+  delete: (id: number) => apiClient.delete(`/guest-accounts/${id}`),
+};
+
 export const hotelProfileAPI = {
   get: () => apiClient.get("/hotel-profile"),
   update: (data: any) => apiClient.put("/hotel-profile", data),
