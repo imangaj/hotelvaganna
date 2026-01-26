@@ -12,4 +12,7 @@ export default defineConfig({
             },
         },
     },
+    preview: {
+        allowedHosts: ["hotelvalganna.it", "www.hotelvalganna.it"],
+    },
 });
