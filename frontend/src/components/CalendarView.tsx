@@ -133,7 +133,7 @@ const CalendarView: React.FC = () => {
         for (const date of dates) {
             const rate = rates.find((r: any) => r.roomTypeId === selectedRoom?.roomTypeId && r.date === date);
             if (!rate) return { ok: false, reason: `No rate found for ${date}` };
-            if (rate.isClosed) return { ok: false, reason: `Closed on ${date}` };
+            if (rate.isClosed) return { ok: false, reason: `Closed on ${date}`, canOverride: true };
             if (rate.availableRooms <= 0) return { ok: false, reason: `No availability on ${date}` };
             if (Number(formData.breakfasts || 0) > 0 && !rate.enableBreakfast) {
                 return { ok: false, reason: `Breakfast not available on ${date}` };
@@ -390,8 +390,15 @@ const CalendarView: React.FC = () => {
         try {
             const availability = await checkAvailability();
             if (!availability.ok) {
-                alert(`Reservation not allowed: ${availability.reason}`);
-                return;
+                if (availability.canOverride) {
+                    const confirmOverride = window.confirm(
+                        `Reservation is closed on some dates (${availability.reason}). Create anyway?`
+                    );
+                    if (!confirmOverride) return;
+                } else {
+                    alert(`Reservation not allowed: ${availability.reason}`);
+                    return;
+                }
             }
             if (availability.warning) {
                 console.warn(availability.warning);
