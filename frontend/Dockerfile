@@ -24,6 +24,7 @@ COPY package*.json ./
 RUN npm install
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/vite.config.* ./
 
 EXPOSE 3000
 
