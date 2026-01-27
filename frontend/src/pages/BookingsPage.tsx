@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { bookingAPI, propertyAPI, roomAPI, guestAPI } from "../api/endpoints";
+import { bookingAPI, propertyAPI, roomAPI, guestAPI, hotelProfileAPI } from "../api/endpoints";
 import { useLanguage } from "../contexts/LanguageContext";
+import { buildReservationReceiptHtml } from "../utils/receipt";
 
 interface Booking {
   id: number;
+  bookingNumber?: string;
   propertyId: number;
   roomId: number;
   checkInDate: string;
   checkOutDate: string;
   numberOfGuests: number;
   totalPrice: number;
+  paidAmount?: number;
   bookingStatus: string;
   paymentStatus: string;
   source: string;
+  breakfastCount?: number;
+  parkingIncluded?: boolean;
   notes?: string;
   property?: any;
-  room?: any;
-  guest?: { firstName?: string; lastName?: string; email?: string };
+  room?: { roomNumber?: string; roomType?: string; breakfastPrice?: number };
+  guest?: { firstName?: string; lastName?: string; email?: string; phone?: string };
   createdAt?: string;
 }
 
@@ -38,6 +43,7 @@ const BookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [hotelProfile, setHotelProfile] = useState<any>(null);
   const [selectedProperty, setSelectedProperty] = useState<number | "">("");
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -70,12 +76,14 @@ const BookingsPage: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-      const [bookingsRes, propertiesRes] = await Promise.all([
+      const [bookingsRes, propertiesRes, profileRes] = await Promise.all([
         bookingAPI.getAll(),
         propertyAPI.getAll(),
+        hotelProfileAPI.get().catch(() => ({ data: null })),
       ]);
       setBookings(bookingsRes.data || []);
       setProperties(propertiesRes.data || []);
+      setHotelProfile(profileRes.data || null);
       if (propertiesRes.data?.length && !selectedProperty) {
         setSelectedProperty(propertiesRes.data[0].id);
       }
@@ -174,6 +182,24 @@ const BookingsPage: React.FC = () => {
     });
   };
 
+  const CITY_TAX_PER_PERSON_PER_NIGHT = 2;
+
+  const handlePrintReceipt = (booking: Booking) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const html = buildReservationReceiptHtml({
+      booking,
+      profile: hotelProfile,
+      cityTaxPerPersonPerNight: CITY_TAX_PER_PERSON_PER_NIGHT,
+    });
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   const toDateKey = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
 
@@ -210,6 +236,12 @@ const BookingsPage: React.FC = () => {
       REFUNDED: t("payment_refunded"),
     };
     return labels[status] || status;
+  };
+
+  const getReservationRole = (source: string) => {
+    if (/booking|expedia|airbnb|ota/i.test(source)) return "OTA";
+    if (/walk|phone/i.test(source)) return "Walk-in / Phone";
+    return "Direct";
   };
 
   const handleManualInput = (
@@ -431,6 +463,7 @@ const BookingsPage: React.FC = () => {
                 <th>{t("bk_table_total_price")}</th>
                 <th>{t("bk_table_booking_status")}</th>
                 <th>{t("bk_table_payment_status")}</th>
+                <th>Role</th>
                 <th>{t("bk_table_source")}</th>
                 <th>{t("bk_table_actions")}</th>
               </tr>
@@ -514,9 +547,16 @@ const BookingsPage: React.FC = () => {
                       </span>
                     )}
                   </td>
+                  <td>{getReservationRole(booking.source)}</td>
                   <td>{booking.source}</td>
                   <td>
                     <div className="action-buttons">
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => handlePrintReceipt(booking)}
+                      >
+                        Receipt
+                      </button>
                       {booking.bookingStatus === "PENDING" && (
                         <button
                           className="btn btn-sm btn-success"

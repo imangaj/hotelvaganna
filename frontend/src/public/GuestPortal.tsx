@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { guestAuthAPI, hotelProfileAPI } from "../api/endpoints";
+import { buildReservationReceiptHtml } from "../utils/receipt";
 
 interface Booking {
   id: number;
@@ -157,55 +158,19 @@ const GuestPortal: React.FC = () => {
     });
   }, [bookings, todayStart]);
 
+  const CITY_TAX_PER_PERSON_PER_NIGHT = 2;
+
   const handlePrint = (booking: Booking) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const hotelName = profile?.name || "Hotel";
-    const logoUrl = profile?.logoUrl || "/logo-192.png";
-    const extras = [
-      booking.breakfastCount > 0 ? `Breakfast x${booking.breakfastCount}` : null,
-      booking.parkingIncluded ? "Parking" : null,
-    ].filter(Boolean).join(" · ");
+    const html = buildReservationReceiptHtml({
+      booking,
+      profile,
+      cityTaxPerPersonPerNight: CITY_TAX_PER_PERSON_PER_NIGHT,
+    });
 
-    const guestNotes = parseGuestNotes(booking.notes);
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Reservation ${booking.bookingNumber || booking.id}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #2c3e50; }
-            .header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-            .logo { height: 40px; }
-            .card { border: 1px solid #eee; border-radius: 8px; padding: 16px; }
-            .row { display: flex; justify-content: space-between; margin: 6px 0; }
-            .title { font-size: 20px; font-weight: bold; margin-bottom: 12px; }
-            .badge { display: inline-block; padding: 4px 8px; border-radius: 10px; font-size: 12px; background: #f1f5f9; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <img class="logo" src="${logoUrl}" />
-            <div>
-              <div style="font-weight: bold; font-size: 18px;">${hotelName}</div>
-              <div style="font-size: 12px; color: #6b7280;">Reservation Confirmation</div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="title">Reservation ${booking.bookingNumber || `#${booking.id}`}</div>
-            <div class="row"><span>Guest</span><span>${guestNotes.checkIn || `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim()}</span></div>
-            ${guestNotes.additional ? `<div class="row"><span>Additional Guests</span><span>${guestNotes.additional}</span></div>` : ""}
-            <div class="row"><span>Dates</span><span>${formatDate(booking.checkInDate)} — ${formatDate(booking.checkOutDate)}</span></div>
-            <div class="row"><span>Room</span><span>${booking.room?.roomType || "Room"}</span></div>
-            <div class="row"><span>Guests</span><span>${booking.numberOfGuests}</span></div>
-            <div class="row"><span>Extras</span><span>${extras || "None"}</span></div>
-            <div class="row"><span>Total</span><span>€${booking.totalPrice.toFixed(2)}</span></div>
-            <div class="row"><span>Status</span><span class="badge">${booking.bookingStatus}</span></div>
-          </div>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
@@ -377,7 +342,7 @@ const GuestPortal: React.FC = () => {
                         onClick={() => handlePrint(booking)}
                         className="px-3 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50"
                       >
-                        Print
+                        Receipt
                       </button>
                     </div>
 
