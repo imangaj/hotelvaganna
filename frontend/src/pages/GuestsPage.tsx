@@ -151,12 +151,13 @@ const GuestsPage: React.FC = () => {
           lastName: guest.lastName,
           phone: guest.phone,
         });
-        accountId = ensureRes.data?.id;
-        if (typeof accountId === "number") {
+        const ensuredId = ensureRes.data?.id;
+        if (typeof ensuredId === "number") {
+          accountId = ensuredId;
           const ensuredEmail = (ensureRes.data?.email as string) || email;
           setGuestAccounts((prev) => [
             ...prev.filter((a) => a.email !== ensuredEmail),
-            { id: accountId, email: ensuredEmail },
+            { id: ensuredId, email: ensuredEmail },
           ]);
         }
       }
