@@ -158,16 +158,25 @@ const GuestPortal: React.FC = () => {
     });
   }, [bookings, todayStart]);
 
-  const CITY_TAX_PER_PERSON_PER_NIGHT = 2;
-
   const handlePrint = (booking: Booking) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
+    const rulesTitle = profile?.contentJson?.i18n?.rules?.title?.en
+      || profile?.contentJson?.rules?.title
+      || "Hotel Rules";
+    const rulesContent = profile?.contentJson?.i18n?.rules?.content?.en
+      || profile?.contentJson?.rules?.content
+      || profile?.policies
+      || "";
+    const cityTax = Number(profile?.contentJson?.receipt?.cityTaxPerPersonPerNight ?? 7.4);
+
     const html = buildReservationReceiptHtml({
       booking,
       profile,
-      cityTaxPerPersonPerNight: CITY_TAX_PER_PERSON_PER_NIGHT,
+      cityTaxPerPersonPerNight: isNaN(cityTax) ? 0 : cityTax,
+      rulesTitle,
+      rulesContent,
     });
 
     printWindow.document.write(html);

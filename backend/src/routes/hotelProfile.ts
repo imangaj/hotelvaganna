@@ -25,7 +25,8 @@ const defaultProfile = {
   instagramUrl: "",
   twitterUrl: "",
   contentJson: {
-    rules: { show: true, title: "Hotel Rules", content: "" }
+    rules: { show: true, title: "Hotel Rules", content: "" },
+    receipt: { cityTaxPerPersonPerNight: 7.4 }
   }
 };
 

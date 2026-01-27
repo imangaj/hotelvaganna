@@ -182,16 +182,25 @@ const BookingsPage: React.FC = () => {
     });
   };
 
-  const CITY_TAX_PER_PERSON_PER_NIGHT = 2;
-
   const handlePrintReceipt = (booking: Booking) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
+    const rulesTitle = hotelProfile?.contentJson?.i18n?.rules?.title?.en
+      || hotelProfile?.contentJson?.rules?.title
+      || "Hotel Rules";
+    const rulesContent = hotelProfile?.contentJson?.i18n?.rules?.content?.en
+      || hotelProfile?.contentJson?.rules?.content
+      || hotelProfile?.policies
+      || "";
+    const cityTax = Number(hotelProfile?.contentJson?.receipt?.cityTaxPerPersonPerNight ?? 7.4);
+
     const html = buildReservationReceiptHtml({
       booking,
       profile: hotelProfile,
-      cityTaxPerPersonPerNight: CITY_TAX_PER_PERSON_PER_NIGHT,
+      cityTaxPerPersonPerNight: isNaN(cityTax) ? 0 : cityTax,
+      rulesTitle,
+      rulesContent,
     });
 
     printWindow.document.write(html);
