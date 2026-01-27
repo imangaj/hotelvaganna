@@ -162,7 +162,7 @@ const GuestPortal: React.FC = () => {
     if (!printWindow) return;
 
     const hotelName = profile?.name || "Hotel";
-    const logoUrl = profile?.logoUrl;
+    const logoUrl = profile?.logoUrl || "/logo-192.png";
     const extras = [
       booking.breakfastCount > 0 ? `Breakfast x${booking.breakfastCount}` : null,
       booking.parkingIncluded ? "Parking" : null,
@@ -186,7 +186,7 @@ const GuestPortal: React.FC = () => {
         </head>
         <body>
           <div class="header">
-            ${logoUrl ? `<img class="logo" src="${logoUrl}" />` : ""}
+            <img class="logo" src="${logoUrl}" />
             <div>
               <div style="font-weight: bold; font-size: 18px;">${hotelName}</div>
               <div style="font-size: 12px; color: #6b7280;">Reservation Confirmation</div>

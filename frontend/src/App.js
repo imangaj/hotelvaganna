@@ -1,9 +1,12 @@
-import { jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState, useEffect } from "react";
 import AuthPage from "./components/AuthPage";
-import AdminDashboard from "./components/AdminDashboard.tsx";
-import PublicSite from "./public/PublicSite.tsx";
-import GuestPortal from "./public/GuestPortal.tsx";
+import AdminDashboard from "./components/AdminDashboard";
+import PublicSite from "./public/PublicSite";
+import GuestPortal from "./public/GuestPortal";
+import GuestForgotPassword from "./pages/GuestForgotPassword";
+import GuestResetPassword from "./pages/GuestResetPassword";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./styles/global.css";
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -28,6 +31,6 @@ function App() {
     if (isLoading && isAdminRoute) {
         return _jsx("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", fontSize: "18px" }, children: "Loading..." });
     }
-    return (_jsx(_Fragment, { children: isAdminRoute ? (isAuthenticated ? (_jsx(AdminDashboard, { onLogout: handleLogout })) : (_jsx(AuthPage, { onAuthSuccess: handleAuthSuccess }))) : isGuestRoute ? (_jsx(GuestPortal, {})) : isPublicRoute ? (_jsx(PublicSite, {})) : null }));
+    return (_jsx(Router, { children: isAdminRoute ? (isAuthenticated ? (_jsx(AdminDashboard, { onLogout: handleLogout })) : (_jsx(AuthPage, { onAuthSuccess: handleAuthSuccess }))) : isGuestRoute ? (_jsxs(Routes, { children: [_jsx(Route, { path: "/guest/forgot-password", element: _jsx(GuestForgotPassword, {}) }), _jsx(Route, { path: "/guest/reset-password", element: _jsx(GuestResetPassword, {}) }), _jsx(Route, { path: "/guest/*", element: _jsx(GuestPortal, {}) })] })) : isPublicRoute ? (_jsx(PublicSite, {})) : null }));
 }
 export default App;

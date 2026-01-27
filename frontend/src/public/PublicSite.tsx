@@ -585,7 +585,7 @@ const PublicSite: React.FC = () => {
       <header className="fixed w-full z-50 transition-all duration-300 bg-white/90 backdrop-blur-md shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-2">
-                {profile.logoUrl && <img src={profile.logoUrl} alt="Logo" className="h-10" />}
+                <img src={profile.logoUrl || "/logo-192.png"} alt="Logo" className="h-10" />
                 <span className="text-xl font-bold tracking-widest uppercase" style={{ color: profile.primaryColor }}>{getLocalizedText(profile.contentJson?.i18n?.websiteTitle, profile.websiteTitle || profile.name)}</span>
             </div>
             <nav className="hidden md:flex gap-8 text-sm font-medium tracking-wide">

@@ -116,6 +116,12 @@ const PricingPage: React.FC = () => {
     return d.toISOString().split("T")[0];
   });
 
+  const isWeekDivider = (date: string, index: number) => {
+    if (index === 0) return false;
+    const day = new Date(`${date}T00:00:00`).getDay();
+    return day === 1;
+  };
+
   // 3. Lookup Helper
   const getRateById = (roomTypeId: number, date: string) => {
     return ratesData.find(r => r.roomTypeId === roomTypeId && r.date === date);
@@ -503,9 +509,9 @@ const PricingPage: React.FC = () => {
           <table className="min-w-full border-collapse pricing-table">
             <thead>
               <tr>
-                <th className="sticky left-0 bg-gray-50 z-10 p-3 border-b border-r min-w-[200px] text-left text-sm font-bold text-gray-700">Room Category</th>
-                {dates.map(date => (
-                  <th key={date} className="p-3 border-b text-center min-w-[120px] bg-gray-50 border-r last:border-r-0">
+                <th className="sticky left-0 bg-gray-50 z-10 p-3 border-b border-r min-w-[200px] text-left text-sm font-bold text-gray-700 pricing-sticky-col">Room Category</th>
+                {dates.map((date, index) => (
+                  <th key={date} className={`p-3 border-b text-center min-w-[120px] bg-gray-50 border-r last:border-r-0 ${isWeekDivider(date, index) ? "week-divider" : ""}`}>
                     <div className="font-semibold text-gray-900 text-sm whitespace-nowrap">{formatDateLabel(date)}</div>
                   </th>
                 ))}
@@ -514,21 +520,21 @@ const PricingPage: React.FC = () => {
             <tbody>
               {roomTypeGroups.map((group) => (
                 <tr key={group.key} className="hover:bg-gray-50 group-row">
-                  <td className="sticky left-0 bg-white z-10 p-4 border-b border-r font-bold text-gray-800 shadow-sm">
+                  <td className="sticky left-0 bg-white z-10 p-4 border-b border-r font-bold text-gray-800 shadow-sm pricing-sticky-col">
                     {group.name}
                     <div className="text-xs text-gray-500 mt-1 font-normal">
                          Base Price & Occupancy
                     </div>
                   </td>
-                  {dates.map(date => {
+                  {dates.map((date, index) => {
                     const data = getGroupRate(group.ids, date);
-                    if (!data) return <td key={date} className="p-4 border-b border-r text-center text-gray-400 bg-gray-50">-</td>;
+                    if (!data) return <td key={date} className={`p-4 border-b border-r text-center text-gray-400 bg-gray-50 ${isWeekDivider(date, index) ? "week-divider" : ""}`}>-</td>;
                     
                     const percent = data.totalRooms > 0 ? (data.bookedRooms / data.totalRooms) * 100 : 0;
                     const occupancyColor = percent >= 90 ? "text-red-600" : percent >= 50 ? "text-yellow-600" : "text-green-600";
                     
                     return (
-                      <td key={date} className="p-2 border-b border-r text-center relative hover:bg-white transition-colors">
+                      <td key={date} className={`p-2 border-b border-r text-center relative hover:bg-white transition-colors ${isWeekDivider(date, index) ? "week-divider" : ""}`}>
                         <div className="flex flex-col items-center gap-2">
                           {/* Price Input */}
                           <div className="relative w-full max-w-[90px]">
@@ -600,17 +606,17 @@ const PricingPage: React.FC = () => {
               
               {/* Totals Row */}
               <tr className="bg-gray-100 font-bold border-t-4 border-gray-300">
-                <td className="sticky left-0 bg-gray-100 z-10 p-4 border-r border-b text-gray-900">
+                <td className="sticky left-0 bg-gray-100 z-10 p-4 border-r border-b text-gray-900 pricing-sticky-col">
                     Total Occupancy
                 </td>
-                {dates.map(date => {
+                {dates.map((date, index) => {
                     const booked = getTotalBooked(date);
                     const total = getTotalRooms(date);
                     const percent = total > 0 ? Math.round((booked / total) * 100) : 0;
                     const occupancyColor = percent >= 90 ? "text-red-600" : percent >= 50 ? "text-yellow-600" : "text-green-600";
 
                     return (
-                        <td key={date} className="p-4 text-center border-r border-b border-gray-200">
+                    <td key={date} className={`p-4 text-center border-r border-b border-gray-200 ${isWeekDivider(date, index) ? "week-divider" : ""}`}>
                             <div className="text-sm text-gray-900">{booked} / {total}</div>
                             <div className={`text-xs ${occupancyColor}`}>{percent}%</div>
                         </td>

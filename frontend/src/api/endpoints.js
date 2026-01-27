@@ -33,9 +33,19 @@ export const bookingAPI = {
     create: (data) => apiClient.post("/bookings", data),
     updateStatus: (id, bookingStatus, paymentStatus, roomId) => apiClient.put(`/bookings/${id}/status`, { bookingStatus, paymentStatus, roomId }),
     cancel: (id) => apiClient.delete(`/bookings/${id}`),
+    deletePermanent: (id) => apiClient.delete(`/bookings/${id}/hard`),
 };
 export const guestAPI = {
+    getAll: () => apiClient.get("/guests"),
     create: (data) => apiClient.post("/guests", data),
+    update: (id, data) => apiClient.put(`/guests/${id}`, data),
+    delete: (id) => apiClient.delete(`/guests/${id}`),
+};
+export const guestAccountAPI = {
+    getAll: () => apiClient.get("/guest-accounts"),
+    update: (id, data) => apiClient.put(`/guest-accounts/${id}`, data),
+    resetPassword: (id, password) => apiClient.post(`/guest-accounts/${id}/reset-password`, { password }),
+    delete: (id) => apiClient.delete(`/guest-accounts/${id}`),
 };
 export const hotelProfileAPI = {
     get: () => apiClient.get("/hotel-profile"),
@@ -73,7 +83,6 @@ export const dashboardAPI = {
 export const publicAPI = {
     search: (params) => apiClient.get("/public/search", { params }),
 };
-
 export const guestAuthAPI = {
     register: (data) => apiClient.post("/guest-auth/register", data),
     login: (data) => apiClient.post("/guest-auth/login", data),
@@ -84,7 +93,6 @@ export const guestAuthAPI = {
         headers: { Authorization: `Bearer ${token}` },
     }),
 };
-
 export const paymentsAPI = {
     createCheckoutSession: (data) => apiClient.post("/payments/checkout-session", data),
     verifySession: (sessionId) => apiClient.get("/payments/verify-session", {

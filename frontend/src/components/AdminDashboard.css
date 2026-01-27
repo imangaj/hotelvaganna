@@ -1247,6 +1247,25 @@ tbody tr:hover {
   min-width: 1200px;
 }
 
+.pricing-table-container {
+  overflow-x: auto;
+  position: relative;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+}
+
+.pricing-sticky-col {
+  box-shadow: 4px 0 6px -4px rgba(0, 0, 0, 0.15);
+}
+
+.pricing-table .week-divider {
+  border-left: 3px solid #2d3748;
+}
+
+.pricing-table thead .week-divider {
+  border-left: 3px solid #1f2937;
+}
+
 /* Guests Page Styles */
 .guests-grid {
   display: grid;

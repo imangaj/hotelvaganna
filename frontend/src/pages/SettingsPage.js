@@ -1,24 +1,44 @@
-import React, { useState, useEffect } from "react";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { useState, useEffect } from "react";
 import { hotelProfileAPI, userAPI } from "../api/endpoints";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Language } from "../i18n/translations";
 import RoomsSettings from "../components/RoomsSettings";
 import PropertiesPage from "./PropertiesPage";
 const SettingsPage = () => {
-    const { language } = useLanguage();
+    const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState("general");
     const [loading, setLoading] = useState(false);
+    const [currentUserRole, setCurrentUserRole] = useState("ADMIN");
     const [contentLanguage, setContentLanguage] = useState(language);
     // Staff Management State
     const [users, setUsers] = useState([]);
     const [loadingStaff, setLoadingStaff] = useState(false);
     const [newStaff, setNewStaff] = useState({ name: "", email: "", password: "", role: "RECEPTION" });
+    const [editingUserId, setEditingUserId] = useState(null);
+    const [editStaff, setEditStaff] = useState({ name: "", email: "", role: "RECEPTION" });
+    const canManageStaff = ["ADMIN", "MANAGER"].includes(currentUserRole);
+    const roleLabel = (role) => {
+        switch (role) {
+            case "ADMIN": return t("role_admin");
+            case "MANAGER": return t("role_manager");
+            case "RECEPTION": return t("role_reception");
+            case "CLEANER": return t("role_cleaner");
+            default: return role;
+        }
+    };
     // Fetch Users when tab changes
     useEffect(() => {
-        if (activeTab === "staff") {
-            fetchUsers();
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+            const u = JSON.parse(userStr);
+            setCurrentUserRole((u.role || "").toUpperCase());
         }
-    }, [activeTab]);
+        if (activeTab === "staff") {
+            if (canManageStaff) {
+                fetchUsers();
+            }
+        }
+    }, [activeTab, canManageStaff]);
     const fetchUsers = async () => {
         setLoadingStaff(true);
         try {
@@ -33,6 +53,10 @@ const SettingsPage = () => {
         }
     };
     const handleCreateUser = async () => {
+        if (!canManageStaff) {
+            alert("Access denied");
+            return;
+        }
         setLoadingStaff(true);
         try {
             await userAPI.create(newStaff);
@@ -49,6 +73,10 @@ const SettingsPage = () => {
         }
     };
     const handleDeleteUser = async (id) => {
+        if (!canManageStaff) {
+            alert("Access denied");
+            return;
+        }
         if (!window.confirm("Are you sure you want to remove this staff member?"))
             return;
         try {
@@ -58,6 +86,42 @@ const SettingsPage = () => {
         catch (error) {
             console.error("Failed to delete user", error);
             alert("Failed to delete user.");
+        }
+    };
+    const handleEditUser = (user) => {
+        setEditingUserId(user.id);
+        setEditStaff({ name: user.name, email: user.email, role: user.role });
+    };
+    const handleUpdateUser = async (id) => {
+        if (!canManageStaff) {
+            alert("Access denied");
+            return;
+        }
+        try {
+            await userAPI.update(id, editStaff);
+            setEditingUserId(null);
+            fetchUsers();
+        }
+        catch (error) {
+            console.error("Failed to update user", error);
+            alert("Failed to update user.");
+        }
+    };
+    const handleResetPassword = async (id) => {
+        if (!canManageStaff) {
+            alert("Access denied");
+            return;
+        }
+        const newPassword = window.prompt("Enter new password for this user:");
+        if (!newPassword)
+            return;
+        try {
+            await userAPI.update(id, { password: newPassword });
+            alert("Password reset successfully.");
+        }
+        catch (error) {
+            console.error("Failed to reset password", error);
+            alert("Failed to reset password.");
         }
     };
     // Hotel Profile State
@@ -82,43 +146,6 @@ const SettingsPage = () => {
     useEffect(() => {
         loadHotelProfile();
     }, []);
-    useEffect(() => {
-        setContentLanguage(language);
-    }, [language]);
-    useEffect(() => {
-        setHotelProfile((prev) => {
-            const i18n = prev.contentJson?.i18n;
-            if (!i18n)
-                return prev;
-            const pick = (val, fallback = "") => (val?.[contentLanguage] || val?.en || fallback || "");
-            return {
-                ...prev,
-                websiteTitle: pick(i18n.websiteTitle, prev.websiteTitle),
-                footerText: pick(i18n.footerText, prev.footerText),
-                amenities: pick(i18n.amenities, prev.amenities),
-                description: pick(i18n.about?.content, prev.description),
-                policies: pick(i18n.rules?.content, prev.policies),
-                contentJson: {
-                    ...prev.contentJson,
-                    hero: {
-                        ...prev.contentJson?.hero,
-                        title: pick(i18n.hero?.title, prev.contentJson?.hero?.title),
-                        subtitle: pick(i18n.hero?.subtitle, prev.contentJson?.hero?.subtitle),
-                    },
-                    about: {
-                        ...prev.contentJson?.about,
-                        title: pick(i18n.about?.title, prev.contentJson?.about?.title),
-                        content: pick(i18n.about?.content, prev.contentJson?.about?.content),
-                    },
-                    rules: {
-                        ...prev.contentJson?.rules,
-                        title: pick(i18n.rules?.title, prev.contentJson?.rules?.title),
-                        content: pick(i18n.rules?.content, prev.contentJson?.rules?.content),
-                    },
-                },
-            };
-        });
-    }, [contentLanguage]);
     const ensureLocalized = (value) => {
         if (!value)
             return { en: "", it: "", zh: "" };
@@ -170,6 +197,30 @@ const SettingsPage = () => {
             console.error("Failed to load profile", err);
         }
     };
+    const handleSaveWebsiteConfig = async () => {
+        setLoading(true);
+        try {
+            const i18n = hotelProfile.contentJson?.i18n || {};
+            const payload = {
+                ...hotelProfile,
+                websiteTitle: i18n.websiteTitle?.en || hotelProfile.websiteTitle,
+                footerText: i18n.footerText?.en || hotelProfile.footerText,
+                amenities: i18n.amenities?.en || hotelProfile.amenities,
+                description: i18n.about?.content?.en || hotelProfile.description,
+                policies: i18n.rules?.content?.en || hotelProfile.policies,
+                contentJson: { ...hotelProfile.contentJson, i18n },
+            };
+            await hotelProfileAPI.update(payload);
+            alert("Website configuration saved successfully!");
+        }
+        catch (err) {
+            console.error(err);
+            alert("Failed to save configuration.");
+        }
+        finally {
+            setLoading(false);
+        }
+    };
     const getLocalizedValue = (value) => value?.[contentLanguage] || "";
     const setLocalizedValue = (path, value) => {
         setHotelProfile((prev) => {
@@ -193,48 +244,12 @@ const SettingsPage = () => {
             };
         });
     };
-    const handleSaveWebsiteConfig = async () => {
-        setLoading(true);
-        try {
-            const i18n = hotelProfile.contentJson?.i18n || {};
-            const updatedI18n = {
-                ...i18n,
-                websiteTitle: { ...(i18n.websiteTitle || {}), [contentLanguage]: hotelProfile.websiteTitle || "" },
-                footerText: { ...(i18n.footerText || {}), [contentLanguage]: hotelProfile.footerText || "" },
-                amenities: { ...(i18n.amenities || {}), [contentLanguage]: hotelProfile.amenities || "" },
-                hero: {
-                    title: { ...(i18n.hero?.title || {}), [contentLanguage]: hotelProfile.contentJson?.hero?.title || "" },
-                    subtitle: { ...(i18n.hero?.subtitle || {}), [contentLanguage]: hotelProfile.contentJson?.hero?.subtitle || "" },
-                },
-                about: {
-                    title: { ...(i18n.about?.title || {}), [contentLanguage]: hotelProfile.contentJson?.about?.title || "" },
-                    content: { ...(i18n.about?.content || {}), [contentLanguage]: hotelProfile.contentJson?.about?.content || "" },
-                },
-                rules: {
-                    title: { ...(i18n.rules?.title || {}), [contentLanguage]: hotelProfile.contentJson?.rules?.title || "" },
-                    content: { ...(i18n.rules?.content || {}), [contentLanguage]: hotelProfile.contentJson?.rules?.content || "" },
-                },
-            };
-            const payload = {
-                ...hotelProfile,
-                websiteTitle: updatedI18n.websiteTitle?.en || hotelProfile.websiteTitle,
-                footerText: updatedI18n.footerText?.en || hotelProfile.footerText,
-                amenities: updatedI18n.amenities?.en || hotelProfile.amenities,
-                description: updatedI18n.about?.content?.en || hotelProfile.description,
-                policies: updatedI18n.rules?.content?.en || hotelProfile.policies,
-                contentJson: { ...hotelProfile.contentJson, i18n: updatedI18n },
-            };
-            await hotelProfileAPI.update(payload);
-            alert("Website configuration saved successfully!");
-        }
-        catch (err) {
-            console.error(err);
-            alert("Failed to save configuration.");
-        }
-        finally {
-            setLoading(false);
-        }
-    };
-    return (_jsxs("div", { className: "p-6 max-w-6xl mx-auto", children: [_jsx("h1", { className: "text-2xl font-bold mb-6 text-gray-800", children: "System Settings" }), _jsxs("div", { className: "flex border-b mb-6 bg-white rounded-t-lg overflow-hidden", children: [_jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "general" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("general"), children: "General Details" }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "properties" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("properties"), children: "Properties" }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "website" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("website"), children: "Website & CMS" }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "notifications" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("notifications"), children: "Notifications" }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "rooms" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("rooms"), children: "Rooms Management" }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "staff" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("staff"), children: "Staff" })] }), _jsxs("div", { className: "bg-white rounded-b-lg shadow-sm p-6 border border-gray-200", children: [activeTab === "general" && (_jsxs("div", { className: "space-y-6", children: [_jsx("h3", { className: "text-lg font-bold text-gray-800 border-b pb-2", children: "Property Details" }), _jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Property Name" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.name || "", onChange: e => setHotelProfile({ ...hotelProfile, name: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Address" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.address || "", onChange: e => setHotelProfile({ ...hotelProfile, address: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "City" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.city || "", onChange: e => setHotelProfile({ ...hotelProfile, city: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Country" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.country || "", onChange: e => setHotelProfile({ ...hotelProfile, country: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Phone" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.phone || "", onChange: e => setHotelProfile({ ...hotelProfile, phone: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Email" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.email || "", onChange: e => setHotelProfile({ ...hotelProfile, email: e.target.value }) })] })] }), _jsx("div", { className: "pt-4 border-t", children: _jsx("button", { className: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition-colors shadow-sm", onClick: handleSaveWebsiteConfig, disabled: loading, children: loading ? "Saving..." : "Save General Settings" }) })] })), activeTab === "website" && (_jsxs("div", { className: "space-y-8 animate-fade-in", children: [_jsxs("div", { className: "border border-gray-200 rounded-lg p-6 bg-gray-50", children: [_jsxs("h3", { className: "text-lg font-bold mb-4 text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83C\uDFA8" }), " Brand Identity"] }), _jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Website Title" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.websiteTitle || "", onChange: e => setHotelProfile({ ...hotelProfile, websiteTitle: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Logo URL" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.logoUrl || "", onChange: e => setHotelProfile({ ...hotelProfile, logoUrl: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Primary Color" }), _jsxs("div", { className: "flex gap-2", children: [_jsx("input", { type: "color", className: "h-10 w-10 p-1 border rounded cursor-pointer", value: hotelProfile.primaryColor || "#000000", onChange: e => setHotelProfile({ ...hotelProfile, primaryColor: e.target.value }) }), _jsx("input", { className: "border p-2 w-full rounded font-mono", value: hotelProfile.primaryColor || "", onChange: e => setHotelProfile({ ...hotelProfile, primaryColor: e.target.value }) })] })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Secondary Color" }), _jsxs("div", { className: "flex gap-2", children: [_jsx("input", { type: "color", className: "h-10 w-10 p-1 border rounded cursor-pointer", value: hotelProfile.secondaryColor || "#000000", onChange: e => setHotelProfile({ ...hotelProfile, secondaryColor: e.target.value }) }), _jsx("input", { className: "border p-2 w-full rounded font-mono", value: hotelProfile.secondaryColor || "", onChange: e => setHotelProfile({ ...hotelProfile, secondaryColor: e.target.value }) })] })] })] })] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("div", { className: "flex justify-between items-center mb-4", children: [_jsxs("h3", { className: "text-lg font-bold text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83D\uDDBC\uFE0F" }), " Homepage Hero Section"] }), _jsxs("label", { className: "flex items-center gap-2 cursor-pointer select-none", children: [_jsx("span", { className: "text-sm font-medium text-gray-600", children: "Visible" }), _jsx("input", { type: "checkbox", className: "form-checkbox h-5 w-5 text-blue-600", checked: hotelProfile.contentJson?.hero?.show, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, hero: { ...hotelProfile.contentJson.hero, show: e.target.checked } } }) })] })] }), hotelProfile.contentJson?.hero?.show && (_jsxs("div", { className: "grid grid-cols-1 gap-4", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Main Title" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: hotelProfile.contentJson.hero?.title, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, hero: { ...hotelProfile.contentJson.hero, title: e.target.value } } }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Subtitle" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: hotelProfile.contentJson.hero?.subtitle, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, hero: { ...hotelProfile.contentJson.hero, subtitle: e.target.value } } }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Background Image URL" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", placeholder: "https://...", value: hotelProfile.contentJson.hero?.image, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, hero: { ...hotelProfile.contentJson.hero, image: e.target.value } } }) }), hotelProfile.contentJson.hero?.image && (_jsx("img", { src: hotelProfile.contentJson.hero.image, alt: "Preview", className: "mt-2 h-32 w-full object-cover rounded border" }))] })] }))] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("div", { className: "flex justify-between items-center mb-4", children: [_jsxs("h3", { className: "text-lg font-bold text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83D\uDCDD" }), " About Section"] }), _jsxs("label", { className: "flex items-center gap-2 cursor-pointer select-none", children: [_jsx("span", { className: "text-sm font-medium text-gray-600", children: "Visible" }), _jsx("input", { type: "checkbox", className: "form-checkbox h-5 w-5 text-blue-600", checked: hotelProfile.contentJson?.about?.show, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, about: { ...hotelProfile.contentJson.about, show: e.target.checked } } }) })] })] }), hotelProfile.contentJson?.about?.show && (_jsxs("div", { className: "grid grid-cols-1 gap-4", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Section Title" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: hotelProfile.contentJson.about?.title, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, about: { ...hotelProfile.contentJson.about, title: e.target.value } } }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Content Text" }), _jsx("textarea", { rows: 5, className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: hotelProfile.contentJson.about?.content, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, about: { ...hotelProfile.contentJson.about, content: e.target.value } } }) })] })] }))] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("div", { className: "flex justify-between items-center mb-4", children: [_jsxs("h3", { className: "text-lg font-bold text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83D\uDCCD" }), " Map Configuration"] }), _jsxs("label", { className: "flex items-center gap-2 cursor-pointer select-none", children: [_jsx("span", { className: "text-sm font-medium text-gray-600", children: "Visible" }), _jsx("input", { type: "checkbox", className: "form-checkbox h-5 w-5 text-blue-600", checked: hotelProfile.contentJson?.map?.show, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, map: { ...hotelProfile.contentJson.map, show: e.target.checked } } }) })] })] }), hotelProfile.contentJson?.map?.show && (_jsxs("div", { className: "p-4 bg-yellow-50 rounded border border-yellow-100", children: [_jsx("label", { className: "block text-sm font-semibold text-gray-800 mb-1", children: "Google Maps Embed URL" }), _jsx("p", { className: "text-xs text-gray-600 mb-2", children: "Go to Google Maps \u2192 Share \u2192 Embed a map \u2192 Copy HTML. Extract just the URL from `src=\"...\"`." }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 font-mono text-sm", placeholder: "https://www.google.com/maps/embed?...", value: hotelProfile.contentJson.map?.embedUrl, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, map: { ...hotelProfile.contentJson.map, embedUrl: e.target.value } } }) })] }))] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("h3", { className: "text-lg font-bold mb-4 text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\u2728" }), " Amenities List"] }), _jsx("textarea", { rows: 3, className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", placeholder: "e.g. Free Wi-Fi, Pool, Spa, Ocean View", value: hotelProfile.amenities || "", onChange: e => setHotelProfile({ ...hotelProfile, amenities: e.target.value }) })] }), _jsx("div", { className: "sticky bottom-0 bg-white py-4 border-t flex justify-end", children: _jsx("button", { className: "bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow hover:bg-blue-700 transition-all transform active:scale-95", onClick: handleSaveWebsiteConfig, disabled: loading, children: loading ? "Saving Changes..." : "💾 Save Website Configuration" }) })] })), activeTab === "staff" && (_jsxs("div", { className: "space-y-6", children: [_jsxs("div", { className: "border border-gray-200 rounded-lg p-6 bg-gray-50", children: [_jsx("h3", { className: "text-lg font-bold mb-4", children: "Add New Staff Member" }), _jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4 mb-4", children: [_jsx("input", { className: "border p-2 rounded", placeholder: "Full Name", value: newStaff.name, onChange: e => setNewStaff({ ...newStaff, name: e.target.value }) }), _jsx("input", { className: "border p-2 rounded", placeholder: "Email Address", value: newStaff.email, onChange: e => setNewStaff({ ...newStaff, email: e.target.value }) }), _jsx("input", { className: "border p-2 rounded", type: "password", placeholder: "Password", value: newStaff.password, onChange: e => setNewStaff({ ...newStaff, password: e.target.value }) }), _jsxs("select", { className: "border p-2 rounded", value: newStaff.role, onChange: e => setNewStaff({ ...newStaff, role: e.target.value }), children: [_jsx("option", { value: "RECEPTION", children: "Reception" }), _jsx("option", { value: "CLEANER", children: "Cleaner" }), _jsx("option", { value: "MANAGER", children: "Manager" }), _jsx("option", { value: "ADMIN", children: "Admin" })] })] }), _jsx("button", { className: "bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50", onClick: handleCreateUser, disabled: loadingStaff || !newStaff.name || !newStaff.email || !newStaff.password, children: loadingStaff ? "Creating..." : "Create Staff Account" })] }), _jsxs("div", { children: [_jsx("h3", { className: "text-lg font-bold mb-4", children: "Current Staff" }), _jsx("div", { className: "bg-white border rounded shadow overflow-hidden", children: _jsxs("table", { className: "w-full text-left border-collapse", children: [_jsx("thead", { className: "bg-gray-100", children: _jsxs("tr", { children: [_jsx("th", { className: "p-3 border-b", children: "Name" }), _jsx("th", { className: "p-3 border-b", children: "Email" }), _jsx("th", { className: "p-3 border-b", children: "Role" }), _jsx("th", { className: "p-3 border-b", children: "Status" }), _jsx("th", { className: "p-3 border-b text-right", children: "Actions" })] }) }), _jsxs("tbody", { children: [users.map(u => (_jsxs("tr", { className: "hover:bg-gray-50", children: [_jsx("td", { className: "p-3 border-b", children: u.name }), _jsx("td", { className: "p-3 border-b", children: u.email }), _jsx("td", { className: "p-3 border-b", children: _jsx("span", { className: "px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold", children: u.role }) }), _jsx("td", { className: "p-3 border-b", children: u.isActive ? _jsx("span", { className: "text-green-600 font-bold", children: "Active" }) : _jsx("span", { className: "text-red-600", children: "Inactive" }) }), _jsx("td", { className: "p-3 border-b text-right", children: _jsx("button", { className: "text-red-600 hover:text-red-800 text-sm font-bold", onClick: () => handleDeleteUser(u.id), children: "Remove" }) })] }, u.id))), users.length === 0 && (_jsx("tr", { children: _jsx("td", { colSpan: 5, className: "p-4 text-center text-gray-500", children: "No staff members found." }) }))] })] }) })] })] })), activeTab === "notifications" && (_jsxs("div", { children: [_jsx("h3", { className: "text-lg font-bold mb-4", children: "Notifications" }), _jsx("p", { className: "text-gray-600", children: "Configure email and SMS alerts." })] })), activeTab === "properties" && (_jsx("div", { className: "-m-6", children: _jsx(PropertiesPage, {}) })), activeTab === "rooms" && _jsx(RoomsSettings, {})] })] }));
+    return (_jsxs("div", { className: "p-6 max-w-6xl mx-auto", children: [_jsx("h1", { className: "text-2xl font-bold mb-6 text-gray-800", children: t("settings_title") }), _jsxs("div", { className: "flex border-b mb-6 bg-white rounded-t-lg overflow-hidden", children: [_jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "general" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("general"), children: t("settings_tab_general") }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "properties" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("properties"), children: t("settings_tab_properties") }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "website" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("website"), children: t("settings_tab_website") }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "notifications" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("notifications"), children: t("settings_tab_notifications") }), _jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "rooms" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("rooms"), children: t("settings_tab_rooms") }), canManageStaff && (_jsx("button", { className: `px-6 py-3 font-medium transition-colors ${activeTab === "staff" ? "border-b-2 border-primary-600 text-primary-600 bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`, onClick: () => setActiveTab("staff"), children: t("settings_tab_staff") }))] }), _jsxs("div", { className: "bg-white rounded-b-lg shadow-sm p-6 border border-gray-200", children: [activeTab === "general" && (_jsxs("div", { className: "space-y-6", children: [_jsx("h3", { className: "text-lg font-bold text-gray-800 border-b pb-2", children: t("settings_property_details") }), _jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: t("settings_property_name") }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.name || "", onChange: e => setHotelProfile({ ...hotelProfile, name: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: t("settings_address") }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.address || "", onChange: e => setHotelProfile({ ...hotelProfile, address: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: t("settings_city") }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.city || "", onChange: e => setHotelProfile({ ...hotelProfile, city: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: t("settings_country") }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.country || "", onChange: e => setHotelProfile({ ...hotelProfile, country: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: t("settings_phone") }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.phone || "", onChange: e => setHotelProfile({ ...hotelProfile, phone: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: t("settings_email") }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.email || "", onChange: e => setHotelProfile({ ...hotelProfile, email: e.target.value }) })] })] }), _jsx("div", { className: "pt-4 border-t", children: _jsx("button", { className: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition-colors shadow-sm", onClick: handleSaveWebsiteConfig, disabled: loading, children: loading ? t("loading") : t("settings_save_general") }) })] })), activeTab === "website" && (_jsxs("div", { className: "space-y-8 animate-fade-in", children: [_jsxs("div", { className: "border border-gray-200 rounded-lg p-6 bg-gray-50", children: [_jsxs("h3", { className: "text-lg font-bold mb-4 text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83C\uDFA8" }), " Brand Identity"] }), _jsxs("div", { className: "mb-4", children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Content Language" }), _jsxs("select", { className: "border p-2 rounded", value: contentLanguage, onChange: (e) => setContentLanguage(e.target.value), children: [_jsx("option", { value: "en", children: "English" }), _jsx("option", { value: "it", children: "Italiano" }), _jsx("option", { value: "zh", children: "\u4E2D\u6587" })] })] }), _jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Website Title" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.websiteTitle), onChange: e => setLocalizedValue(["websiteTitle"], e.target.value) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Logo URL" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none", value: hotelProfile.logoUrl || "", onChange: e => setHotelProfile({ ...hotelProfile, logoUrl: e.target.value }) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Primary Color" }), _jsxs("div", { className: "flex gap-2", children: [_jsx("input", { type: "color", className: "h-10 w-10 p-1 border rounded cursor-pointer", value: hotelProfile.primaryColor || "#000000", onChange: e => setHotelProfile({ ...hotelProfile, primaryColor: e.target.value }) }), _jsx("input", { className: "border p-2 w-full rounded font-mono", value: hotelProfile.primaryColor || "", onChange: e => setHotelProfile({ ...hotelProfile, primaryColor: e.target.value }) })] })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Secondary Color" }), _jsxs("div", { className: "flex gap-2", children: [_jsx("input", { type: "color", className: "h-10 w-10 p-1 border rounded cursor-pointer", value: hotelProfile.secondaryColor || "#000000", onChange: e => setHotelProfile({ ...hotelProfile, secondaryColor: e.target.value }) }), _jsx("input", { className: "border p-2 w-full rounded font-mono", value: hotelProfile.secondaryColor || "", onChange: e => setHotelProfile({ ...hotelProfile, secondaryColor: e.target.value }) })] })] })] })] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("div", { className: "flex justify-between items-center mb-4", children: [_jsxs("h3", { className: "text-lg font-bold text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83D\uDDBC\uFE0F" }), " Homepage Hero Section"] }), _jsxs("label", { className: "flex items-center gap-2 cursor-pointer select-none", children: [_jsx("span", { className: "text-sm font-medium text-gray-600", children: "Visible" }), _jsx("input", { type: "checkbox", className: "form-checkbox h-5 w-5 text-blue-600", checked: hotelProfile.contentJson?.hero?.show, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, hero: { ...hotelProfile.contentJson.hero, show: e.target.checked } } }) })] })] }), hotelProfile.contentJson?.hero?.show && (_jsxs("div", { className: "grid grid-cols-1 gap-4", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Main Title" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.hero?.title), onChange: e => setLocalizedValue(["hero", "title"], e.target.value) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Subtitle" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.hero?.subtitle), onChange: e => setLocalizedValue(["hero", "subtitle"], e.target.value) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Background Image URL" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", placeholder: "https://...", value: hotelProfile.contentJson.hero?.image, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, hero: { ...hotelProfile.contentJson.hero, image: e.target.value } } }) }), hotelProfile.contentJson.hero?.image && (_jsx("img", { src: hotelProfile.contentJson.hero.image, alt: "Preview", className: "mt-2 h-32 w-full object-cover rounded border" }))] })] }))] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("div", { className: "flex justify-between items-center mb-4", children: [_jsxs("h3", { className: "text-lg font-bold text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83D\uDCDD" }), " About Section"] }), _jsxs("label", { className: "flex items-center gap-2 cursor-pointer select-none", children: [_jsx("span", { className: "text-sm font-medium text-gray-600", children: "Visible" }), _jsx("input", { type: "checkbox", className: "form-checkbox h-5 w-5 text-blue-600", checked: hotelProfile.contentJson?.about?.show, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, about: { ...hotelProfile.contentJson.about, show: e.target.checked } } }) })] })] }), hotelProfile.contentJson?.about?.show && (_jsxs("div", { className: "grid grid-cols-1 gap-4", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Section Title" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.about?.title), onChange: e => setLocalizedValue(["about", "title"], e.target.value) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Content Text" }), _jsx("textarea", { rows: 5, className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.about?.content), onChange: e => setLocalizedValue(["about", "content"], e.target.value) })] })] }))] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("div", { className: "flex justify-between items-center mb-4", children: [_jsxs("h3", { className: "text-lg font-bold text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83D\uDCCD" }), " Map Configuration"] }), _jsxs("label", { className: "flex items-center gap-2 cursor-pointer select-none", children: [_jsx("span", { className: "text-sm font-medium text-gray-600", children: "Visible" }), _jsx("input", { type: "checkbox", className: "form-checkbox h-5 w-5 text-blue-600", checked: hotelProfile.contentJson?.map?.show, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, map: { ...hotelProfile.contentJson.map, show: e.target.checked } } }) })] })] }), hotelProfile.contentJson?.map?.show && (_jsxs("div", { className: "p-4 bg-yellow-50 rounded border border-yellow-100", children: [_jsx("label", { className: "block text-sm font-semibold text-gray-800 mb-1", children: "Google Maps Embed URL" }), _jsx("p", { className: "text-xs text-gray-600 mb-2", children: "Go to Google Maps \u2192 Share \u2192 Embed a map \u2192 Copy HTML. Extract just the URL from `src=\"...\"`." }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 font-mono text-sm", placeholder: "https://www.google.com/maps/embed?...", value: hotelProfile.contentJson.map?.embedUrl, onChange: e => setHotelProfile({ ...hotelProfile, contentJson: { ...hotelProfile.contentJson, map: { ...hotelProfile.contentJson.map, embedUrl: e.target.value } } }) })] }))] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("h3", { className: "text-lg font-bold mb-4 text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\u2728" }), " Amenities List"] }), _jsx("textarea", { rows: 3, className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", placeholder: "e.g. Free Wi-Fi, Pool, Spa, Ocean View", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.amenities), onChange: e => setLocalizedValue(["amenities"], e.target.value) })] }), _jsxs("div", { className: "border border-gray-200 rounded-lg p-6", children: [_jsxs("div", { className: "flex justify-between items-center mb-4", children: [_jsxs("h3", { className: "text-lg font-bold text-gray-800 flex items-center gap-2", children: [_jsx("span", { children: "\uD83D\uDCDC" }), " Booking Rules Popup"] }), _jsxs("label", { className: "flex items-center gap-2 cursor-pointer select-none", children: [_jsx("span", { className: "text-sm font-medium text-gray-600", children: "Visible" }), _jsx("input", { type: "checkbox", className: "form-checkbox h-5 w-5 text-blue-600", checked: hotelProfile.contentJson?.rules?.show, onChange: e => setHotelProfile({
+                                                            ...hotelProfile,
+                                                            contentJson: {
+                                                                ...hotelProfile.contentJson,
+                                                                rules: { ...hotelProfile.contentJson.rules, show: e.target.checked }
+                                                            }
+                                                        }) })] })] }), hotelProfile.contentJson?.rules?.show && (_jsxs("div", { className: "grid grid-cols-1 gap-4", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Popup Title" }), _jsx("input", { className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.rules?.title), onChange: e => setLocalizedValue(["rules", "title"], e.target.value) })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Rules Text" }), _jsx("textarea", { rows: 6, className: "border p-2 w-full rounded focus:ring-2 focus:ring-primary-500", placeholder: "Write the hotel rules shown before payment...", value: getLocalizedValue(hotelProfile.contentJson?.i18n?.rules?.content), onChange: e => setLocalizedValue(["rules", "content"], e.target.value) })] })] }))] }), _jsx("div", { className: "sticky bottom-0 bg-white py-4 border-t flex justify-end", children: _jsx("button", { className: "bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow hover:bg-blue-700 transition-all transform active:scale-95", onClick: handleSaveWebsiteConfig, disabled: loading, children: loading ? "Saving Changes..." : "💾 Save Website Configuration" }) })] })), activeTab === "staff" && (_jsxs("div", { className: "space-y-6", children: [!canManageStaff && (_jsx("div", { className: "p-6 text-center text-red-600 font-bold", children: t("access_denied") })), canManageStaff && (_jsxs(_Fragment, { children: [_jsxs("div", { className: "border border-gray-200 rounded-lg p-6 bg-gray-50", children: [_jsx("h3", { className: "text-lg font-bold mb-4", children: t("staff_add_title") }), _jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4 mb-4", children: [_jsx("input", { className: "border p-2 rounded", placeholder: t("staff_full_name"), value: newStaff.name, onChange: e => setNewStaff({ ...newStaff, name: e.target.value }) }), _jsx("input", { className: "border p-2 rounded", placeholder: t("staff_email_address"), value: newStaff.email, onChange: e => setNewStaff({ ...newStaff, email: e.target.value }) }), _jsx("input", { className: "border p-2 rounded", type: "password", placeholder: t("staff_password"), value: newStaff.password, onChange: e => setNewStaff({ ...newStaff, password: e.target.value }) }), _jsxs("select", { className: "border p-2 rounded", value: newStaff.role, onChange: e => setNewStaff({ ...newStaff, role: e.target.value }), children: [_jsx("option", { value: "RECEPTION", children: t("role_reception") }), _jsx("option", { value: "CLEANER", children: t("role_cleaner") }), _jsx("option", { value: "MANAGER", children: t("role_manager") }), _jsx("option", { value: "ADMIN", children: t("role_admin") })] })] }), _jsx("button", { className: "bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50", onClick: handleCreateUser, disabled: loadingStaff || !newStaff.name || !newStaff.email || !newStaff.password, children: loadingStaff ? t("staff_creating") : t("staff_create_account") })] }), _jsxs("div", { children: [_jsx("h3", { className: "text-lg font-bold mb-4", children: t("staff_current_staff") }), _jsx("div", { className: "bg-white border rounded shadow overflow-hidden", children: _jsxs("table", { className: "w-full text-left border-collapse", children: [_jsx("thead", { className: "bg-gray-100", children: _jsxs("tr", { children: [_jsx("th", { className: "p-3 border-b", children: t("staff_name") }), _jsx("th", { className: "p-3 border-b", children: t("settings_email") }), _jsx("th", { className: "p-3 border-b", children: t("staff_role") }), _jsx("th", { className: "p-3 border-b", children: t("staff_status") }), _jsx("th", { className: "p-3 border-b text-right", children: t("staff_actions") })] }) }), _jsxs("tbody", { children: [users.map(u => (_jsxs("tr", { className: "hover:bg-gray-50", children: [_jsx("td", { className: "p-3 border-b", children: editingUserId === u.id ? (_jsx("input", { className: "border p-1 rounded text-sm", value: editStaff.name, onChange: e => setEditStaff({ ...editStaff, name: e.target.value }) })) : (u.name) }), _jsx("td", { className: "p-3 border-b", children: editingUserId === u.id ? (_jsx("input", { className: "border p-1 rounded text-sm", value: editStaff.email, onChange: e => setEditStaff({ ...editStaff, email: e.target.value }) })) : (u.email) }), _jsx("td", { className: "p-3 border-b", children: editingUserId === u.id ? (_jsxs("select", { className: "border p-1 rounded text-sm", value: editStaff.role, onChange: e => setEditStaff({ ...editStaff, role: e.target.value }), children: [_jsx("option", { value: "RECEPTION", children: t("role_reception") }), _jsx("option", { value: "CLEANER", children: t("role_cleaner") }), _jsx("option", { value: "MANAGER", children: t("role_manager") }), _jsx("option", { value: "ADMIN", children: t("role_admin") })] })) : (_jsx("span", { className: "px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold", children: roleLabel(u.role) })) }), _jsx("td", { className: "p-3 border-b", children: u.isActive ? _jsx("span", { className: "text-green-600 font-bold", children: t("staff_active") }) : _jsx("span", { className: "text-red-600", children: t("staff_inactive") }) }), _jsx("td", { className: "p-3 border-b text-right", children: editingUserId === u.id ? (_jsxs(_Fragment, { children: [_jsx("button", { className: "text-green-600 hover:text-green-800 text-sm font-bold mr-3", onClick: () => handleUpdateUser(u.id), children: "Save" }), _jsx("button", { className: "text-gray-600 hover:text-gray-800 text-sm font-bold mr-3", onClick: () => setEditingUserId(null), children: "Cancel" })] })) : (_jsxs(_Fragment, { children: [_jsx("button", { className: "text-blue-600 hover:text-blue-800 text-sm font-bold mr-3", onClick: () => handleEditUser(u), children: "Edit" }), _jsx("button", { className: "text-purple-600 hover:text-purple-800 text-sm font-bold mr-3", onClick: () => handleResetPassword(u.id), children: "Reset Password" }), _jsx("button", { className: "text-red-600 hover:text-red-800 text-sm font-bold", onClick: () => handleDeleteUser(u.id), children: t("staff_remove") })] })) })] }, u.id))), users.length === 0 && (_jsx("tr", { children: _jsx("td", { colSpan: 5, className: "p-4 text-center text-gray-500", children: t("staff_none") }) }))] })] }) })] })] }))] })), activeTab === "notifications" && (_jsxs("div", { children: [_jsx("h3", { className: "text-lg font-bold mb-4", children: "Notifications" }), _jsx("p", { className: "text-gray-600", children: "Configure email and SMS alerts." })] })), activeTab === "properties" && (_jsx("div", { className: "-m-6", children: _jsx(PropertiesPage, {}) })), activeTab === "rooms" && _jsx(RoomsSettings, {})] })] }));
 };
 export default SettingsPage;

@@ -1,7 +1,6 @@
 // Re-compiling to ensure the fix is applied
 import axios from "axios";
 const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
-
 const apiClient = axios.create({
     baseURL: apiBaseUrl,
     headers: {
