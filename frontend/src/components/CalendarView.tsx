@@ -80,7 +80,8 @@ const CalendarView: React.FC = () => {
     const computeExtras = () => {
         const selectedRoom = rooms.find(r => r.id === selectedRoomId);
         const nights = getNights(formData.checkIn, formData.checkOut);
-        const breakfastUnit = selectedRoom?.breakfastPrice ?? breakfastUnitPrice;
+        const roomBreakfastPrice = selectedRoom?.breakfastPrice;
+        const breakfastUnit = roomBreakfastPrice && roomBreakfastPrice > 0 ? roomBreakfastPrice : breakfastUnitPrice;
         const breakfasts = Math.max(0, Number(formData.breakfasts || 0));
         const breakfastTotal = breakfasts * breakfastUnit * nights;
         const parkingTotal = formData.parking ? parkingUnitPrice * nights : 0;
@@ -102,9 +103,23 @@ const CalendarView: React.FC = () => {
     };
 
     const checkAvailability = async () => {
-        const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+        let selectedRoom = rooms.find(r => r.id === selectedRoomId);
+        if ((!selectedRoom?.propertyId || !selectedRoom?.roomTypeId) && selectedRoomId) {
+            try {
+                const roomRes = await roomAPI.getById(selectedRoomId);
+                const fetched = roomRes.data || {};
+                selectedRoom = {
+                    ...selectedRoom,
+                    propertyId: selectedRoom?.propertyId ?? fetched.propertyId,
+                    roomTypeId: selectedRoom?.roomTypeId ?? fetched.roomTypeId ?? fetched.roomType?.id,
+                } as Room;
+            } catch (error) {
+                console.warn("Failed to load room details for availability", error);
+            }
+        }
+
         if (!selectedRoom?.propertyId || !selectedRoom?.roomTypeId) {
-            return { ok: false, reason: "Missing room type info" };
+            return { ok: true, warning: "Missing room type info; availability check skipped." };
         }
 
         const start = formData.checkIn;
@@ -116,7 +131,7 @@ const CalendarView: React.FC = () => {
         const dates = getDateRange(start, end);
 
         for (const date of dates) {
-            const rate = rates.find((r: any) => r.roomTypeId === selectedRoom.roomTypeId && r.date === date);
+            const rate = rates.find((r: any) => r.roomTypeId === selectedRoom?.roomTypeId && r.date === date);
             if (!rate) return { ok: false, reason: `No rate found for ${date}` };
             if (rate.isClosed) return { ok: false, reason: `Closed on ${date}` };
             if (rate.availableRooms <= 0) return { ok: false, reason: `No availability on ${date}` };
@@ -377,6 +392,9 @@ const CalendarView: React.FC = () => {
             if (!availability.ok) {
                 alert(`Reservation not allowed: ${availability.reason}`);
                 return;
+            }
+            if (availability.warning) {
+                console.warn(availability.warning);
             }
 
             const { total: computedTotal } = computeExtras();
