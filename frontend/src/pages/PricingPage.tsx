@@ -28,6 +28,7 @@ const PricingPage: React.FC = () => {
   const [hotelProfile, setHotelProfile] = useState<any>(null);
   const [breakfastPrice, setBreakfastPrice] = useState<number>(7);
   const [parkingPrice, setParkingPrice] = useState<number>(20);
+  const [cityTaxPrice, setCityTaxPrice] = useState<number>(7.4);
   const [savingBreakfast, setSavingBreakfast] = useState(false);
   
   // Date selection
@@ -65,6 +66,9 @@ const PricingPage: React.FC = () => {
       if (typeof receiptConfig.parkingUnitPrice === "number") {
         setParkingPrice(receiptConfig.parkingUnitPrice);
       }
+      if (typeof receiptConfig.cityTaxPerPersonPerNight === "number") {
+        setCityTaxPrice(receiptConfig.cityTaxPerPersonPerNight);
+      }
     } catch (e) {
       console.error("Failed to load hotel profile", e);
     }
@@ -83,6 +87,7 @@ const PricingPage: React.FC = () => {
             ...(contentJson.receipt || {}),
             breakfastUnitPrice: breakfastPrice,
             parkingUnitPrice: parkingPrice,
+            cityTaxPerPersonPerNight: cityTaxPrice,
           },
         },
       };
@@ -205,7 +210,7 @@ const PricingPage: React.FC = () => {
     // Optimistic Update
     setRatesData(prev => prev.map(r => 
       (roomTypeIds.includes(r.roomTypeId) && r.date === date) 
-      ? { ...r, price, isOverride: true }
+      ? { ...r, price, isOverride: true, isClosed: false }
       : r
     ));
 
@@ -214,7 +219,7 @@ const PricingPage: React.FC = () => {
         setSaveStatus("Saving...");
         await ratesAPI.update(
           Number(selectedProperty),
-          roomTypeIds.map((id) => ({ roomTypeId: id, date, price }))
+          roomTypeIds.map((id) => ({ roomTypeId: id, date, price, isClosed: false }))
         );
         setSaveStatus("Saved");
         setTimeout(() => setSaveStatus(""), 2000);
@@ -243,7 +248,8 @@ const PricingPage: React.FC = () => {
         ? { 
             ...r, 
             totalRooms: count !== null ? count : r.totalPhysical, 
-            hasInventoryOverride: count !== null 
+            hasInventoryOverride: count !== null,
+            isClosed: false
           }
         : r
     ));
@@ -260,7 +266,8 @@ const PricingPage: React.FC = () => {
             // We only want to update inventory here. But upsert requires price if new.
             // But we have the current price in state!
             price: getRateById(id, date)?.price || 0,
-            availableCount: count !== null ? count : "" // Send empty string for reset? Backend handles it?
+            availableCount: count !== null ? count : "", // Send empty string for reset? Backend handles it?
+            isClosed: false
           }))
         );
         setSaveStatus("Saved");
@@ -458,6 +465,27 @@ const PricingPage: React.FC = () => {
             className="border border-gray-300 rounded-md p-2 w-28"
             value={parkingPrice}
             onChange={(e) => setParkingPrice(Number(e.target.value) || 0)}
+          />
+          <button
+            className="bg-gray-900 text-white px-3 py-2 rounded hover:bg-black"
+            onClick={handleSaveBreakfastPrice}
+            disabled={savingBreakfast}
+          >
+            {savingBreakfast ? "Saving..." : "Save"}
+          </button>
+        </div>
+        <div className="ml-6">
+          <div className="text-sm font-medium text-gray-700">City tax (per person/night)</div>
+          <div className="text-xs text-gray-500">Used in receipts and totals.</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">€</span>
+          <input
+            type="number"
+            step="0.1"
+            className="border border-gray-300 rounded-md p-2 w-28"
+            value={cityTaxPrice}
+            onChange={(e) => setCityTaxPrice(Number(e.target.value) || 0)}
           />
           <button
             className="bg-gray-900 text-white px-3 py-2 rounded hover:bg-black"

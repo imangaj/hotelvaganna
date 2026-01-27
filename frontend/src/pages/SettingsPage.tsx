@@ -403,28 +403,7 @@ const SettingsPage: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t("settings_email")}</label>
                         <input className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none" value={hotelProfile.email || ""} onChange={e => setHotelProfile({...hotelProfile, email: e.target.value})} />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">City Tax (per person per night)</label>
-                        <input
-                            type="number"
-                            step="0.1"
-                            className="border p-2 w-full rounded focus:ring-2 focus:ring-primary-500 outline-none"
-                            value={hotelProfile.contentJson?.receipt?.cityTaxPerPersonPerNight ?? 7.4}
-                            onChange={(e) => {
-                                const value = parseFloat(e.target.value);
-                                setHotelProfile(prev => ({
-                                    ...prev,
-                                    contentJson: {
-                                        ...prev.contentJson,
-                                        receipt: {
-                                            ...(prev.contentJson?.receipt || {}),
-                                            cityTaxPerPersonPerNight: isNaN(value) ? 0 : value,
-                                        }
-                                    }
-                                }));
-                            }}
-                        />
-                    </div>
+                    
                 </div>
                 
                 <div className="pt-4 border-t">

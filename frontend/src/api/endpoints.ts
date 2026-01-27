@@ -71,6 +71,8 @@ export const guestAPI = {
 
 export const guestAccountAPI = {
   getAll: () => apiClient.get("/guest-accounts"),
+  ensure: (data: { email: string; firstName?: string; lastName?: string; phone?: string }) =>
+    apiClient.post("/guest-accounts/ensure", data),
   update: (id: number, data: { email?: string }) => apiClient.put(`/guest-accounts/${id}`, data),
   resetPassword: (id: number, password: string) =>
     apiClient.post(`/guest-accounts/${id}/reset-password`, { password }),

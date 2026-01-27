@@ -48,6 +48,40 @@ router.get("/", requireRole(["ADMIN", "MANAGER"]), async (_req: Request, res: Re
   }
 });
 
+// Ensure guest account exists (create if missing)
+router.post("/ensure", requireRole(["ADMIN", "MANAGER"]), async (req: Request, res: Response) => {
+  try {
+    const { email, firstName, lastName, phone } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    let account = await prisma.guestAccount.findUnique({ where: { email: normalizedEmail } });
+    if (!account && normalizedEmail !== email) {
+      account = await prisma.guestAccount.findUnique({ where: { email } });
+    }
+
+    if (!account) {
+      const passwordHash = await bcrypt.hash("123", 10);
+      account = await prisma.guestAccount.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+          firstName,
+          lastName,
+          phone,
+        },
+      });
+    }
+
+    res.json({ id: account.id, email: account.email });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to ensure guest account", error });
+  }
+});
+
 // Update guest account (email)
 router.put("/:id", requireRole(["ADMIN", "MANAGER"]), async (req: Request, res: Response) => {
   try {

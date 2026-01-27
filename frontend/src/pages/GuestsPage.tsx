@@ -137,16 +137,35 @@ const GuestsPage: React.FC = () => {
     }
   };
 
-  const handleResetGuestPasswordByEmail = async (email: string) => {
+  const handleResetGuestPassword = async (guest: Guest) => {
+    const email = guest.email;
     const account = guestAccounts.find((a) => a.email === email);
-    if (!account) {
-      alert("No guest account found for this email.");
-      return;
-    }
     const newPassword = window.prompt("Enter new password for this guest:");
     if (!newPassword) return;
     try {
-      await guestAccountAPI.resetPassword(account.id, newPassword);
+      let accountId = account?.id;
+      if (!accountId) {
+        const ensureRes = await guestAccountAPI.ensure({
+          email,
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          phone: guest.phone,
+        });
+        accountId = ensureRes.data?.id;
+        if (accountId) {
+          setGuestAccounts((prev) => [
+            ...prev.filter((a) => a.email !== ensureRes.data?.email),
+            { id: accountId, email: ensureRes.data?.email || email },
+          ]);
+        }
+      }
+
+      if (!accountId) {
+        alert("Failed to create guest account for this email.");
+        return;
+      }
+
+      await guestAccountAPI.resetPassword(accountId, newPassword);
       alert("Guest password reset successfully.");
     } catch (err) {
       console.error("Failed to reset guest password", err);
@@ -231,7 +250,7 @@ const GuestsPage: React.FC = () => {
                 ) : (
                   <>
                     <button className="btn btn-sm btn-info" onClick={() => handleEditGuest(guest)}>Edit</button>
-                    <button className="btn btn-sm btn-warning" onClick={() => handleResetGuestPasswordByEmail(guest.email)}>Reset Password</button>
+                    <button className="btn btn-sm btn-warning" onClick={() => handleResetGuestPassword(guest)}>Reset Password</button>
                     <button className="btn btn-sm btn-danger" onClick={() => guest.id && handleDeleteGuest(guest.id)}>Delete</button>
                   </>
                 )}
