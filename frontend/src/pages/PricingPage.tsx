@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { propertyAPI, ratesAPI } from "../api/endpoints";
+import { hotelProfileAPI, propertyAPI, ratesAPI } from "../api/endpoints";
 
 interface Property {
   id: number;
@@ -25,6 +25,10 @@ const PricingPage: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
+  const [hotelProfile, setHotelProfile] = useState<any>(null);
+  const [breakfastPrice, setBreakfastPrice] = useState<number>(7);
+  const [parkingPrice, setParkingPrice] = useState<number>(20);
+  const [savingBreakfast, setSavingBreakfast] = useState(false);
   
   // Date selection
   const today = new Date();
@@ -48,7 +52,48 @@ const PricingPage: React.FC = () => {
 
   useEffect(() => {
     loadProperties();
+    loadHotelProfile();
   }, []);
+  const loadHotelProfile = async () => {
+    try {
+      const res = await hotelProfileAPI.get();
+      setHotelProfile(res.data || null);
+      const receiptConfig = res.data?.contentJson?.receipt || {};
+      if (typeof receiptConfig.breakfastUnitPrice === "number") {
+        setBreakfastPrice(receiptConfig.breakfastUnitPrice);
+      }
+      if (typeof receiptConfig.parkingUnitPrice === "number") {
+        setParkingPrice(receiptConfig.parkingUnitPrice);
+      }
+    } catch (e) {
+      console.error("Failed to load hotel profile", e);
+    }
+  };
+
+  const handleSaveBreakfastPrice = async () => {
+    if (!hotelProfile) return;
+    try {
+      setSavingBreakfast(true);
+      const contentJson = hotelProfile.contentJson || {};
+      const updated = {
+        ...hotelProfile,
+        contentJson: {
+          ...contentJson,
+          receipt: {
+            ...(contentJson.receipt || {}),
+            breakfastUnitPrice: breakfastPrice,
+            parkingUnitPrice: parkingPrice,
+          },
+        },
+      };
+      const res = await hotelProfileAPI.update(updated);
+      setHotelProfile(res.data || updated);
+    } catch (e) {
+      console.error("Failed to save breakfast price", e);
+    } finally {
+      setSavingBreakfast(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedProperty) {
@@ -376,6 +421,51 @@ const PricingPage: React.FC = () => {
             >
                 Bulk Update
             </button>
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded shadow-sm border border-gray-200 mb-6 flex flex-wrap items-center gap-4">
+        <div>
+          <div className="text-sm font-medium text-gray-700">Breakfast price (per person/night)</div>
+          <div className="text-xs text-gray-500">Breakfast availability is controlled per day in the table.</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">€</span>
+          <input
+            type="number"
+            step="0.1"
+            className="border border-gray-300 rounded-md p-2 w-28"
+            value={breakfastPrice}
+            onChange={(e) => setBreakfastPrice(Number(e.target.value) || 0)}
+          />
+          <button
+            className="bg-gray-900 text-white px-3 py-2 rounded hover:bg-black"
+            onClick={handleSaveBreakfastPrice}
+            disabled={savingBreakfast}
+          >
+            {savingBreakfast ? "Saving..." : "Save"}
+          </button>
+        </div>
+        <div className="ml-6">
+          <div className="text-sm font-medium text-gray-700">Parking price (per night)</div>
+          <div className="text-xs text-gray-500">Parking charge used in manual reservations & receipt.</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">€</span>
+          <input
+            type="number"
+            step="0.1"
+            className="border border-gray-300 rounded-md p-2 w-28"
+            value={parkingPrice}
+            onChange={(e) => setParkingPrice(Number(e.target.value) || 0)}
+          />
+          <button
+            className="bg-gray-900 text-white px-3 py-2 rounded hover:bg-black"
+            onClick={handleSaveBreakfastPrice}
+            disabled={savingBreakfast}
+          >
+            {savingBreakfast ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
 

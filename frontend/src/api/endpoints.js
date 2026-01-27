@@ -99,3 +99,8 @@ export const paymentsAPI = {
         params: { session_id: sessionId },
     }),
 };
+export const pushAPI = {
+    getVapidPublicKey: () => apiClient.get("/push/vapid-public-key"),
+    subscribe: (subscription) => apiClient.post("/push/subscribe", { subscription }),
+    unsubscribe: (endpoint) => apiClient.post("/push/unsubscribe", { endpoint }),
+};

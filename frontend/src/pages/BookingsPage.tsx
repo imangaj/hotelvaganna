@@ -39,7 +39,7 @@ interface Room {
 }
 
 const BookingsPage: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -186,10 +186,10 @@ const BookingsPage: React.FC = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const rulesTitle = hotelProfile?.contentJson?.i18n?.rules?.title?.en
+    const rulesTitle = hotelProfile?.contentJson?.i18n?.rules?.title?.[language]
       || hotelProfile?.contentJson?.rules?.title
       || "Hotel Rules";
-    const rulesContent = hotelProfile?.contentJson?.i18n?.rules?.content?.en
+    const rulesContent = hotelProfile?.contentJson?.i18n?.rules?.content?.[language]
       || hotelProfile?.contentJson?.rules?.content
       || hotelProfile?.policies
       || "";
@@ -198,6 +198,7 @@ const BookingsPage: React.FC = () => {
     const html = buildReservationReceiptHtml({
       booking,
       profile: hotelProfile,
+      language,
       cityTaxPerPersonPerNight: isNaN(cityTax) ? 0 : cityTax,
       rulesTitle,
       rulesContent,

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { guestAuthAPI, hotelProfileAPI } from "../api/endpoints";
 import { buildReservationReceiptHtml } from "../utils/receipt";
+import { useLanguage } from "../contexts/LanguageContext";
 
 interface Booking {
   id: number;
@@ -22,6 +23,7 @@ interface Booking {
 }
 
 const GuestPortal: React.FC = () => {
+  const { language } = useLanguage();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -162,10 +164,10 @@ const GuestPortal: React.FC = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const rulesTitle = profile?.contentJson?.i18n?.rules?.title?.en
+    const rulesTitle = profile?.contentJson?.i18n?.rules?.title?.[language]
       || profile?.contentJson?.rules?.title
       || "Hotel Rules";
-    const rulesContent = profile?.contentJson?.i18n?.rules?.content?.en
+    const rulesContent = profile?.contentJson?.i18n?.rules?.content?.[language]
       || profile?.contentJson?.rules?.content
       || profile?.policies
       || "";
@@ -174,6 +176,7 @@ const GuestPortal: React.FC = () => {
     const html = buildReservationReceiptHtml({
       booking,
       profile,
+      language,
       cityTaxPerPersonPerNight: isNaN(cityTax) ? 0 : cityTax,
       rulesTitle,
       rulesContent,

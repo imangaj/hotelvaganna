@@ -19,6 +19,7 @@ model User {
   role      String  @default("STAFF")
   
   assignedTasks HousekeepingTask[] @relation("HousekeepingAssignee")
+  pushSubscriptions PushSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -279,6 +280,22 @@ model HotelProfile {
   updatedAt     DateTime @updatedAt
 
   @@map("hotel_profile")
+}
+
+// Web Push Subscriptions (Admin Dashboard)
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("push_subscriptions")
 }
 
 // Housekeeping Tasks

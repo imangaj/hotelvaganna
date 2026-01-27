@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db";
+import bcryptjs from "bcryptjs";
 
 const router = Router();
 
@@ -34,6 +35,20 @@ router.post("/", async (req: Request, res: Response) => {
         country,
       },
     });
+
+    const existingAccount = await prisma.guestAccount.findUnique({ where: { email } });
+    if (!existingAccount) {
+      const passwordHash = await bcryptjs.hash("123", 10);
+      await prisma.guestAccount.create({
+        data: {
+          email,
+          passwordHash,
+          firstName,
+          lastName,
+          phone,
+        },
+      });
+    }
 
     res.status(201).json(guest);
   } catch (error) {

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db";
 import { sendBookingEmails } from "../utils/mailer";
+import { sendPushToAll } from "../utils/push";
 
 const router = Router();
 
@@ -149,6 +150,8 @@ router.post("/", async (req: Request, res: Response) => {
       },
     });
 
+    const isWebsiteBooking = typeof source === "string" && /website|direct_website/i.test(source);
+
     try {
       const fullBooking = await prisma.booking.findUnique({
         where: { id: booking.id },
@@ -178,6 +181,16 @@ router.post("/", async (req: Request, res: Response) => {
           }).catch((err) => {
             console.error("Email sending failed", err);
           });
+        });
+      }
+
+      if (isWebsiteBooking && fullBooking) {
+        const guestName = `${fullBooking.guest?.firstName || ""} ${fullBooking.guest?.lastName || ""}`.trim() || "Guest";
+        const roomType = fullBooking.room?.roomType?.name || "Room";
+        await sendPushToAll({
+          title: "New website reservation",
+          body: `${guestName} · ${roomType} · ${fullBooking.checkInDate.toISOString().split("T")[0]} → ${fullBooking.checkOutDate.toISOString().split("T")[0]}`,
+          url: "/admin",
         });
       }
     } catch (emailError) {

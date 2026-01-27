@@ -20,6 +20,7 @@ import userRoutes from "./routes/users";
 import guestAuthRoutes from "./routes/guestAuth";
 import guestAccountRoutes from "./routes/guestAccounts";
 import paymentsRoutes from "./routes/payments";
+import pushRoutes from "./routes/push";
 
 dotenv.config();
 
@@ -89,6 +90,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/guest-auth", guestAuthRoutes);
 app.use("/api/guest-accounts", guestAccountRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/push", pushRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { roomAPI, bookingAPI, guestAPI, maintenanceAPI } from "../api/endpoints";
+import { roomAPI, bookingAPI, guestAPI, maintenanceAPI, hotelProfileAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./CalendarView.css";
@@ -16,6 +16,7 @@ interface Room {
     status: string;
     basePrice: number;
     maxGuests: number;
+    breakfastPrice?: number;
 }
 
 interface MaintenanceRequest {
@@ -51,6 +52,9 @@ const CalendarView: React.FC = () => {
     const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [hotelProfile, setHotelProfile] = useState<any>(null);
+    const [breakfastUnitPrice, setBreakfastUnitPrice] = useState(7);
+    const [parkingUnitPrice, setParkingUnitPrice] = useState(20);
     const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
     const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null); // For Managing existing booking
     const [showManageModal, setShowManageModal] = useState(false);
@@ -62,6 +66,26 @@ const CalendarView: React.FC = () => {
 
     const formatShortDateEU = (dateStr: string) =>
         new Date(dateStr).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", month: "short", day: "numeric" });
+
+    const getNights = (checkIn?: string, checkOut?: string) => {
+        if (!checkIn || !checkOut) return 1;
+        const start = new Date(checkIn).getTime();
+        const end = new Date(checkOut).getTime();
+        if (!start || !end) return 1;
+        return Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+    };
+
+    const computeExtras = () => {
+        const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+        const nights = getNights(formData.checkIn, formData.checkOut);
+        const breakfastUnit = selectedRoom?.breakfastPrice ?? breakfastUnitPrice;
+        const breakfasts = Math.max(0, Number(formData.breakfasts || 0));
+        const breakfastTotal = breakfasts * breakfastUnit * nights;
+        const parkingTotal = formData.parking ? parkingUnitPrice * nights : 0;
+        const basePrice = Number(formData.price) || 0;
+        const total = basePrice + breakfastTotal + parkingTotal;
+        return { nights, breakfastUnit, breakfastTotal, parkingTotal, total, basePrice };
+    };
 
     // Manual Booking Modal Form State
     const [formData, setFormData] = useState({
@@ -91,7 +115,24 @@ const CalendarView: React.FC = () => {
 
     useEffect(() => {
         loadData();
+        loadHotelProfile();
     }, []);
+
+    const loadHotelProfile = async () => {
+        try {
+            const res = await hotelProfileAPI.get();
+            const receipt = res.data?.contentJson?.receipt || {};
+            setHotelProfile(res.data || null);
+            if (typeof receipt.breakfastUnitPrice === "number") {
+                setBreakfastUnitPrice(receipt.breakfastUnitPrice);
+            }
+            if (typeof receipt.parkingUnitPrice === "number") {
+                setParkingUnitPrice(receipt.parkingUnitPrice);
+            }
+        } catch (error) {
+            console.error("Failed to load hotel profile", error);
+        }
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -205,7 +246,7 @@ const CalendarView: React.FC = () => {
             phone: "",
             checkIn: selectedDate,
             checkOut: tomorrow.toISOString().split('T')[0],
-            guests: 1,
+            guests: Math.min(Math.max(1, room.maxGuests || 1), 2),
             breakfasts: 0,
             parking: false,
             source: "WALK_IN",
@@ -291,6 +332,8 @@ const CalendarView: React.FC = () => {
         }
 
         try {
+            const { total: computedTotal } = computeExtras();
+
             // 1. Create Guest
             const guestRes = await guestAPI.create({
                 firstName: formData.firstName,
@@ -308,7 +351,7 @@ const CalendarView: React.FC = () => {
                 checkInDate: formData.checkIn,
                 checkOutDate: formData.checkOut,
                 numberOfGuests: formData.guests,
-                totalPrice: Number(formData.price),
+                totalPrice: computedTotal,
                 paidAmount: Number(formData.paidAmount),
                 source: formData.source,
                 breakfastCount: Number(formData.breakfasts),
@@ -540,6 +583,26 @@ const CalendarView: React.FC = () => {
                                             <input type="date" required value={formData.checkOut} onChange={e => setFormData({...formData, checkOut: e.target.value})} />
                                         </div>
                                     </div>
+
+                                    <div className="form-row">
+                                        <div className="input-group">
+                                            <label>Guests</label>
+                                            <select
+                                                value={formData.guests}
+                                                onChange={(e) => {
+                                                    const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+                                                    const maxGuests = selectedRoom?.maxGuests || 1;
+                                                    const value = Math.min(Math.max(1, Number(e.target.value)), maxGuests);
+                                                    setFormData({ ...formData, guests: value });
+                                                }}
+                                            >
+                                                {Array.from({ length: rooms.find(r => r.id === selectedRoomId)?.maxGuests || 1 }).map((_, i) => (
+                                                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                                ))}
+                                            </select>
+                                            <small style={{color: '#6b7280'}}>Max guests: {rooms.find(r => r.id === selectedRoomId)?.maxGuests || 1}</small>
+                                        </div>
+                                    </div>
                                     
                                     <hr style={{margin: '15px 0', border: 'none', borderTop: '1px solid #eee'}} />
 
@@ -566,8 +629,13 @@ const CalendarView: React.FC = () => {
                                              <input type="number" value={formData.paidAmount} onChange={e => setFormData({...formData, paidAmount: Number(e.target.value)})} />
                                         </div>
                                         <div className="input-group">
-                                             <label>Remaining</label>
-                                             <input disabled value={Math.max(0, formData.price - formData.paidAmount)} style={{background: '#eee'}} />
+                                            <label>Remaining</label>
+                                            {(() => {
+                                                const { total } = computeExtras();
+                                                return (
+                                                    <input disabled value={Math.max(0, total - formData.paidAmount)} style={{background: '#eee'}} />
+                                                );
+                                            })()}
                                         </div>
                                     </div>
 
@@ -575,10 +643,27 @@ const CalendarView: React.FC = () => {
                                         <div className="input-group">
                                             <label>Daily Breakfasts Count</label>
                                             <input type="number" min="0" value={formData.breakfasts} onChange={e => setFormData({...formData, breakfasts: Number(e.target.value)})} />
+                                            <small style={{color: '#6b7280'}}>Price: €{computeExtras().breakfastUnit.toFixed(2)} per person/night</small>
                                         </div>
                                         <div className="input-group" style={{flexDirection: 'row', alignItems: 'center'}}>
                                             <input type="checkbox" style={{width: 'auto', marginRight: '10px'}} checked={formData.parking} onChange={e => setFormData({...formData, parking: e.target.checked})} />
                                             <label style={{marginBottom: 0}}>Include Parking Slot?</label>
+                                        </div>
+                                        <small style={{color: '#6b7280'}}>Parking price: €{parkingUnitPrice.toFixed(2)} per night</small>
+                                        <div className="input-group">
+                                            {(() => {
+                                                const { breakfastTotal, parkingTotal, total } = computeExtras();
+                                                return (
+                                                    <small style={{color: '#6b7280'}}>
+                                                        Breakfast total: €{breakfastTotal.toFixed(2)} · Parking total: €{parkingTotal.toFixed(2)} · Total with extras: €{total.toFixed(2)}
+                                                    </small>
+                                                );
+                                            })()}
+                                        </div>
+                                        <div className="input-group">
+                                            <small style={{color: '#111827', fontWeight: 600}}>
+                                                Total charged for this booking: €{computeExtras().total.toFixed(2)}
+                                            </small>
                                         </div>
                                     </div>
 

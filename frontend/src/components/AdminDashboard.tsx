@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { bookingAPI, dashboardAPI } from "../api/endpoints";
+import { initAdminPushNotifications } from "../utils/pushNotifications";
 import BookingsPage from "../pages/BookingsPage";
 import AnalyticsPage from "../pages/AnalyticsPage";
 import GuestsPage from "../pages/GuestsPage";
@@ -88,6 +89,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     };
 
     init();
+  }, []);
+
+  useEffect(() => {
+    initAdminPushNotifications().catch((error) => {
+      console.error("Push notification init failed", error);
+    });
   }, []);
 
   useEffect(() => {

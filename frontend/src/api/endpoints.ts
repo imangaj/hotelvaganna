@@ -34,6 +34,12 @@ export const roomAPI = {
     apiClient.post(`/rooms/${id}/price`, { date, price }),
 };
 
+export const pushAPI = {
+  getVapidPublicKey: () => apiClient.get("/push/vapid-public-key"),
+  subscribe: (subscription: any) => apiClient.post("/push/subscribe", { subscription }),
+  unsubscribe: (endpoint: string) => apiClient.post("/push/unsubscribe", { endpoint }),
+};
+
 export const bookingAPI = {
   getAll: () => apiClient.get("/bookings"),
   getByProperty: (propertyId: number) =>
