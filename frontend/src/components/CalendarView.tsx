@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { roomAPI, bookingAPI, guestAPI, maintenanceAPI, hotelProfileAPI } from "../api/endpoints";
+import { roomAPI, bookingAPI, guestAPI, maintenanceAPI, hotelProfileAPI, ratesAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./CalendarView.css";
@@ -12,6 +12,8 @@ registerLocale("it", it);
 interface Room {
     id: number;
     roomNumber: string;
+    propertyId?: number;
+    roomTypeId?: number;
     roomType: string;
     status: string;
     basePrice: number;
@@ -85,6 +87,45 @@ const CalendarView: React.FC = () => {
         const basePrice = Number(formData.price) || 0;
         const total = basePrice + breakfastTotal + parkingTotal;
         return { nights, breakfastUnit, breakfastTotal, parkingTotal, total, basePrice };
+    };
+
+    const getDateRange = (startStr: string, endStr: string) => {
+        const start = new Date(startStr);
+        const end = new Date(endStr);
+        const dates: string[] = [];
+        const current = new Date(start);
+        while (current < end) {
+            dates.push(current.toISOString().split("T")[0]);
+            current.setDate(current.getDate() + 1);
+        }
+        return dates;
+    };
+
+    const checkAvailability = async () => {
+        const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+        if (!selectedRoom?.propertyId || !selectedRoom?.roomTypeId) {
+            return { ok: false, reason: "Missing room type info" };
+        }
+
+        const start = formData.checkIn;
+        const end = formData.checkOut;
+        if (!start || !end) return { ok: false, reason: "Invalid dates" };
+
+        const res = await ratesAPI.get(selectedRoom.propertyId, start, end);
+        const rates = res.data || [];
+        const dates = getDateRange(start, end);
+
+        for (const date of dates) {
+            const rate = rates.find((r: any) => r.roomTypeId === selectedRoom.roomTypeId && r.date === date);
+            if (!rate) return { ok: false, reason: `No rate found for ${date}` };
+            if (rate.isClosed) return { ok: false, reason: `Closed on ${date}` };
+            if (rate.availableRooms <= 0) return { ok: false, reason: `No availability on ${date}` };
+            if (Number(formData.breakfasts || 0) > 0 && !rate.enableBreakfast) {
+                return { ok: false, reason: `Breakfast not available on ${date}` };
+            }
+        }
+
+        return { ok: true };
     };
 
     // Manual Booking Modal Form State
@@ -332,6 +373,12 @@ const CalendarView: React.FC = () => {
         }
 
         try {
+            const availability = await checkAvailability();
+            if (!availability.ok) {
+                alert(`Reservation not allowed: ${availability.reason}`);
+                return;
+            }
+
             const { total: computedTotal } = computeExtras();
 
             // 1. Create Guest

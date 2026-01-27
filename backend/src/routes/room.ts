@@ -26,6 +26,7 @@ router.get("/property/:propertyId", async (req: Request, res: Response) => {
       id: room.id,
       roomNumber: room.roomNumber,
       propertyId: room.propertyId,
+      roomTypeId: room.roomTypeId,
       roomType: room.roomType.name,
       maxGuests: room.roomType.maxGuests,
       basePrice: room.roomType.basePrice,
