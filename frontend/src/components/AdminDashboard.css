@@ -133,6 +133,7 @@
 .main-content {
   margin-left: 260px;
   flex: 1;
+  min-width: 0;
   padding: 30px;
   min-height: 100vh;
   background-color: #f5f7fa;
@@ -206,6 +207,7 @@
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   min-height: calc(100vh - 150px);
+  min-width: 0;
 }
 
 @media (max-width: 768px) {
@@ -1245,6 +1247,48 @@ tbody tr:hover {
 
 .pricing-table {
   min-width: 1200px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.pricing-table thead th {
+  padding: 14px 16px;
+  background: #f3f7fc;
+  color: #1f2937;
+  border-bottom: 1px solid #dde5ef;
+  border-top: 1px solid #dde5ef;
+}
+
+.pricing-table thead th:first-child {
+  border-left: 1px solid #dde5ef;
+  border-top-left-radius: 8px;
+}
+
+.pricing-table thead th:last-child {
+  border-right: 1px solid #dde5ef;
+  border-top-right-radius: 8px;
+}
+
+.pricing-table tbody tr.group-row td {
+  background: #ffffff;
+  border: 1px solid #e6eaf0;
+  padding: 14px 12px;
+}
+
+.pricing-table tbody tr.group-row td:first-child {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.pricing-table tbody tr.group-row:hover td {
+  background: #f4f8ff;
+}
+
+.pricing-table .week-divider {
+  border-left: 2px solid #94a3b8;
+}
+
+.pricing-table thead .week-divider {
+  border-left: 2px solid #64748b;
 }
 
 .pricing-table-container {
@@ -1252,6 +1296,7 @@ tbody tr:hover {
   position: relative;
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
+  max-width: 100%;
 }
 
 .pricing-sticky-col {
