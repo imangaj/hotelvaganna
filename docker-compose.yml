@@ -17,14 +17,14 @@ services:
       JWT_EXPIRE: "7d"
       PORT: 5000
       NODE_ENV: production
-      HOTEL_EMAIL: "hotel.valganna@libero.it"
-      SMTP_HOST: "smtp.libero.it"
-      SMTP_PORT: 465
-      SMTP_USER: "hotel.valganna@libero.it"
+      HOTEL_EMAIL: "${HOTEL_EMAIL:-hotel.valganna@libero.it}"
+      SMTP_HOST: "${SMTP_HOST:-smtp.libero.it}"
+      SMTP_PORT: "${SMTP_PORT:-465}"
+      SMTP_USER: "${SMTP_USER:-hotel.valganna@libero.it}"
       SMTP_PASS: "${SMTP_PASS:-}"
       BOOKING_NOTIFICATION_EMAIL: "${BOOKING_NOTIFICATION_EMAIL:-hotel.valganna@libero.it}"
       FRONTEND_URL: "${FRONTEND_URL:-https://hotelvalganna.it}"
-      SMTP_FROM: "hotel.valganna@libero.it"
+      SMTP_FROM: "${SMTP_FROM:-hotel.valganna@libero.it}"
       STRIPE_SECRET_KEY: ""
       STRIPE_SUCCESS_URL: ""
       STRIPE_CANCEL_URL: ""
