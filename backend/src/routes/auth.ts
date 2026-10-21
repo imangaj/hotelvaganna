@@ -4,7 +4,8 @@ import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt_key_change_in_production";
+import { getJwtSecret } from "../utils/authConfig";
+import authMiddleware from "../middleware/auth";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -21,8 +22,11 @@ router.post("/register", async (req: AuthRequest, res: Response) => {
 router.post("/login", async (req: AuthRequest, res: Response) => {
   try {
     const { email, password } = req.body;
+    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email: email.trim() } });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -34,7 +38,7 @@ router.post("/login", async (req: AuthRequest, res: Response) => {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: "7d" } as any
     );
 
@@ -45,6 +49,19 @@ router.post("/login", async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Login failed", error });
+  }
+});
+
+router.get("/me", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { id: true, email: true, name: true, role: true },
+    });
+    if (!user) return res.status(401).json({ message: "Session is no longer valid" });
+    return res.json(user);
+  } catch {
+    return res.status(500).json({ message: "Unable to validate session" });
   }
 });
 

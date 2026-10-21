@@ -12,7 +12,8 @@ services:
       - "5000:5000"
     environment:
       # DATABASE_URL: "file:./dev.db" # Default in usage
-      JWT_SECRET: "your_jwt_secret_key_here_change_in_production"
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in the server environment}"
+      GUEST_JWT_SECRET: "${GUEST_JWT_SECRET:-}"
       JWT_EXPIRE: "7d"
       PORT: 5000
       NODE_ENV: production
@@ -20,7 +21,9 @@ services:
       SMTP_HOST: "smtp.libero.it"
       SMTP_PORT: 465
       SMTP_USER: "hotel.valganna@libero.it"
-      SMTP_PASS: "hotelvalganna123"
+      SMTP_PASS: "${SMTP_PASS:-}"
+      BOOKING_NOTIFICATION_EMAIL: "${BOOKING_NOTIFICATION_EMAIL:-hotel.valganna@libero.it}"
+      FRONTEND_URL: "${FRONTEND_URL:-https://hotelvalganna.it}"
       SMTP_FROM: "hotel.valganna@libero.it"
       STRIPE_SECRET_KEY: ""
       STRIPE_SUCCESS_URL: ""
@@ -30,11 +33,15 @@ services:
 
   frontend:
     image: imanganj/hotelvaganna-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: "${VITE_API_URL:-/api}"
+        VITE_APP_MODE: "${VITE_APP_MODE:-}"
     container_name: pms-frontend
     ports:
       - "3000:3000"
-    environment:
-      VITE_API_URL: "http://64.226.97.191:5000/api"
     depends_on:
       - backend
     # volumes removed for production; ensures latest build is served

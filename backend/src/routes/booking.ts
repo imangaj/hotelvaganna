@@ -165,7 +165,7 @@ router.post("/", async (req: Request, res: Response) => {
       const hotelProfile = await prisma.hotelProfile.findFirst();
       const hotelEmail = hotelProfile?.email || process.env.HOTEL_EMAIL || "hotel.valganna@libero.it";
 
-      if (fullBooking && fullBooking.guest?.email) {
+      if (fullBooking) {
         setImmediate(() => {
           sendBookingEmails({
             bookingNumber: fullBooking.bookingNumber,
@@ -173,6 +173,13 @@ router.post("/", async (req: Request, res: Response) => {
             checkOutDate: fullBooking.checkOutDate,
             totalPrice: fullBooking.totalPrice,
             guestEmail: fullBooking.guest.email,
+            guestPhone: fullBooking.guest.phone,
+            numberOfGuests: fullBooking.numberOfGuests,
+            breakfastCount: fullBooking.breakfastCount,
+            parkingIncluded: fullBooking.parkingIncluded,
+            notes: fullBooking.notes,
+            paidAmount: fullBooking.paidAmount,
+            paymentStatus: fullBooking.paymentStatus,
             guestName: `${fullBooking.guest.firstName} ${fullBooking.guest.lastName}`.trim(),
             roomNumber: fullBooking.room?.roomNumber,
             roomType: fullBooking.room?.roomType?.name,

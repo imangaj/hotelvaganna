@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const GUEST_JWT_SECRET = process.env.GUEST_JWT_SECRET || process.env.JWT_SECRET || "secret_jwt_key_change_in_production";
+import { getJwtSecret } from "../utils/authConfig";
 
 export interface GuestAuthRequest extends Request {
   guest?: {
@@ -18,7 +18,10 @@ export const requireGuestAuth = (req: GuestAuthRequest, res: Response, next: Nex
   }
 
   try {
-    const payload = jwt.verify(token, GUEST_JWT_SECRET) as { email: string };
+    const payload = jwt.verify(token, getJwtSecret(true)) as jwt.JwtPayload;
+    if (typeof payload.email !== "string" || !payload.email || payload.userId !== undefined) {
+      return res.status(401).json({ message: "Invalid guest token" });
+    }
     req.guest = { email: payload.email };
     next();
   } catch (error) {

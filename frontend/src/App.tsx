@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import apiClient from "./api/apiClient";
 import AuthPage from "./components/AuthPage";
 import AdminDashboard from "./components/AdminDashboard";
 import PublicSite from "./public/PublicSite";
@@ -12,10 +13,44 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const [sessionError, setSessionError] = useState(false);
+
+  const validateSession = async () => {
+    setIsLoading(true);
+    setSessionError(false);
     const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token);
-    setIsLoading(false);
+    if (!token) {
+      setIsAuthenticated(false);
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const response = await apiClient.get("/auth/me");
+      if (localStorage.getItem("token") === token) {
+        localStorage.setItem("user", JSON.stringify(response.data));
+        setIsAuthenticated(true);
+      }
+    } catch (error: any) {
+      setIsAuthenticated(false);
+      setSessionError(error.response?.status !== 401);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (import.meta.env.VITE_APP_MODE === "admin" || window.location.pathname.startsWith("/admin")) validateSession();
+    else setIsLoading(false);
+    const expired = () => setIsAuthenticated(false);
+    const storageChanged = (event: StorageEvent) => {
+      if (event.key === "token") validateSession();
+    };
+    window.addEventListener("staff-session-expired", expired);
+    window.addEventListener("storage", storageChanged);
+    return () => {
+      window.removeEventListener("staff-session-expired", expired);
+      window.removeEventListener("storage", storageChanged);
+    };
   }, []);
 
   const handleAuthSuccess = () => {
@@ -40,7 +75,9 @@ function App() {
   return (
     <Router>
       {isAdminRoute ? (
-        isAuthenticated ? (
+        sessionError ? (
+          <div className="min-h-screen flex flex-col items-center justify-center gap-4"><p>Unable to connect. Your session has been kept.</p><button onClick={validateSession}>Try again</button></div>
+        ) : isAuthenticated ? (
           <AdminDashboard onLogout={handleLogout} />
         ) : (
           <AuthPage onAuthSuccess={handleAuthSuccess} />
@@ -50,6 +87,9 @@ function App() {
           <Route path="/guest/forgot-password" element={<GuestForgotPassword />} />
           <Route path="/guest/reset-password" element={<GuestResetPassword />} />
           <Route path="/guest/*" element={<GuestPortal />} />
+          <Route path="/forgot-password" element={<GuestForgotPassword />} />
+          <Route path="/reset-password" element={<GuestResetPassword />} />
+          <Route path="*" element={<GuestPortal />} />
         </Routes>
       ) : isPublicRoute ? (
         <PublicSite />

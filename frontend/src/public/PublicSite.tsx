@@ -1,3 +1,4 @@
+import { hotelCompany } from "./hotelCompany";
 import React, { useEffect, useRef, useState } from "react";
 import { propertyAPI, roomAPI, hotelProfileAPI, bookingAPI, publicAPI, guestAuthAPI, paymentsAPI } from "../api/endpoints";
 import DatePicker from "react-datepicker";
@@ -245,6 +246,18 @@ const PublicSite: React.FC = () => {
 
         loadGuestProfile();
     }, [guestToken]);
+
+    useEffect(() => {
+        const expired = () => {
+            setGuestToken(null);
+            setGuestId(null);
+            setGuestEmail("");
+            setGuestProfileName("");
+            setGuestDetails({ firstName: "", lastName: "", email: "", phone: "" });
+        };
+        window.addEventListener("guest-session-expired", expired);
+        return () => window.removeEventListener("guest-session-expired", expired);
+    }, []);
 
   const loadInitialData = async () => {
     try {
@@ -867,6 +880,15 @@ const PublicSite: React.FC = () => {
                   </div>
               </div>
           </div>
+          <div className="max-w-7xl mx-auto mt-10 pt-8 border-t border-white/20 text-sm leading-relaxed">
+            <p className="font-semibold tracking-wide">{hotelCompany.name}</p>
+            <p>{language === "it" ? "Sede legale" : language === "zh" ? "注册地址" : "Registered office"}: {hotelCompany.registeredOffice}</p>
+            <p>P. IVA / C.F.: {hotelCompany.vatNumber} · REA: {hotelCompany.rea}</p>
+            <p>{language === "it" ? "Capitale sociale" : language === "zh" ? "注册资本" : "Share capital"}: {hotelCompany.shareCapital}</p>
+            {hotelCompany.cin && <p>CIN: {hotelCompany.cin}</p>}
+            {hotelCompany.cir && <p>CIR: {hotelCompany.cir}</p>}
+            {hotelCompany.pec && <p>PEC: {hotelCompany.pec}</p>}
+          </div>
           <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-white/10 text-center opacity-50 text-xs tracking-widest uppercase">
               {profile.footerCopyright || `© ${new Date().getFullYear()} ${profile.name}. All rights reserved.`}
           </div>
@@ -881,8 +903,8 @@ const PublicSite: React.FC = () => {
                             <div className="text-center">
                                 <div className="text-5xl mb-3">✅</div>
                                 <h3 className="text-2xl font-playfair font-bold text-gray-800">Booking Confirmed!</h3>
-                                <p className="text-gray-600 mt-1">We sent a confirmation to {confirmation?.guest.email}.</p>
-                                <p className="text-xs text-gray-500 mt-2">No account is required to book. You can view or print this reservation anytime at /guest using the same email.</p>
+                                <p className="text-gray-600 mt-1">Your reservation is confirmed for {confirmation?.guest.email}.</p>
+                                <p className="text-xs text-gray-500 mt-2">View your upcoming and past reservations in your guest account.</p>
                             </div>
 
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">

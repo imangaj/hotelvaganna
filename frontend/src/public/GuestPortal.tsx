@@ -1,3 +1,6 @@
+import LanguageSelector from "../components/LanguageSelector";
+import { guestPortalCopy } from "./guestPortalCopy";
+import "./GuestPortal.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { guestAuthAPI, hotelProfileAPI } from "../api/endpoints";
 import { buildReservationReceiptHtml } from "../utils/receipt";
@@ -24,6 +27,10 @@ interface Booking {
 
 const GuestPortal: React.FC = () => {
   const { language } = useLanguage();
+  const copy = guestPortalCopy[language];
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [bookingsError, setBookingsError] = useState("");
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -56,12 +63,20 @@ const GuestPortal: React.FC = () => {
 
   const loadBookings = async (guestToken: string) => {
     setBookingsLoading(true);
+    setBookingsError("");
     try {
       const res = await guestAuthAPI.getBookings(guestToken);
-      setBookings(res.data || []);
-    } catch (error) {
-      console.error(error);
-      setAuthError("Failed to load your bookings. Please login again.");
+      if (localStorage.getItem("guestToken") === guestToken) setBookings(res.data || []);
+    } catch (error: any) {
+      if (localStorage.getItem("guestToken") !== guestToken) return;
+      if (error.response?.status === 401) {
+        localStorage.removeItem("guestToken");
+        setToken(null);
+        setBookings([]);
+        setAuthError(copy.expired);
+      } else {
+        setBookingsError(copy.loadFailed);
+      }
     } finally {
       setBookingsLoading(false);
     }
@@ -69,36 +84,73 @@ const GuestPortal: React.FC = () => {
 
   useEffect(() => {
     if (token) {
+      guestAuthAPI.me(token).then(({ data }) => {
+        if (localStorage.getItem("guestToken") !== token) return;
+        setEmail(data.email || "");
+        setFirstName(data.firstName || "");
+        setLastName(data.lastName || "");
+        setPhone(data.phone || "");
+      }).catch((error) => {
+        if (localStorage.getItem("guestToken") !== token) return;
+        if (error.response?.status === 401) {
+          setToken(null);
+          setBookings([]);
+          setAuthError(copy.expired);
+        }
+      });
       loadBookings(token);
     }
   }, [token]);
 
+  useEffect(() => {
+    const expired = () => {
+      setToken(null);
+      setBookings([]);
+      setAuthError(guestPortalCopy[language].expired);
+    };
+    const changed = (event: StorageEvent) => {
+      if (event.key === "guestToken") {
+        setToken(localStorage.getItem("guestToken"));
+        setBookings([]);
+      }
+    };
+    window.addEventListener("guest-session-expired", expired);
+    window.addEventListener("storage", changed);
+    return () => {
+      window.removeEventListener("guest-session-expired", expired);
+      window.removeEventListener("storage", changed);
+    };
+  }, [language]);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authLoading) return;
     setAuthError("");
 
     if (!email || !password) {
-      setAuthError("Email and password are required.");
+      setAuthError(copy.required);
       return;
     }
 
     if (authMode === "register" && (!firstName || !lastName || !phone)) {
-      setAuthError("First name, last name, and phone are required.");
+      setAuthError(copy.nameRequired);
       return;
     }
 
+    setAuthLoading(true);
     try {
       const res = authMode === "login"
-        ? await guestAuthAPI.login({ email, password })
-        : await guestAuthAPI.register({ email, password, firstName, lastName, phone });
+        ? await guestAuthAPI.login({ email: email.trim(), password })
+        : await guestAuthAPI.register({ email: email.trim(), password, firstName, lastName, phone });
 
       const newToken = res.data?.token;
       const guestProfile = res.data?.guest;
       if (!newToken) {
-        setAuthError("Login failed.");
+        setAuthError(copy.authFailed);
         return;
       }
       localStorage.setItem("guestToken", newToken);
+      setBookings([]);
       setToken(newToken);
       setPassword("");
       if (guestProfile) {
@@ -107,7 +159,9 @@ const GuestPortal: React.FC = () => {
         setPhone(guestProfile.phone || "");
       }
     } catch (error: any) {
-      setAuthError(error.response?.data?.message || "Login failed.");
+      setAuthError(error.response?.status === 409 ? (language === "it" ? "Account già esistente. Accedi o reimposta la password." : language === "zh" ? "账户已存在，请登录或重置密码。" : "An account already exists. Sign in or reset your password.") : copy.authFailed);
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -115,10 +169,12 @@ const GuestPortal: React.FC = () => {
     localStorage.removeItem("guestToken");
     setToken(null);
     setBookings([]);
+    setAuthError("");
+    setBookingsError("");
   };
 
   const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
+    new Date(dateStr).toLocaleDateString(language === "it" ? "it-IT" : language === "zh" ? "zh-CN" : "en-GB", { timeZone: "Europe/Rome" });
 
   const parseGuestNotes = (notes?: string) => {
     if (!notes) return { checkIn: "", additional: "" };
@@ -138,8 +194,8 @@ const GuestPortal: React.FC = () => {
     if (firstName || lastName) {
       return `${firstName} ${lastName}`.trim();
     }
-    return email || "Guest";
-  }, [bookings, email, firstName, lastName]);
+    return email || copy.guest;
+  }, [bookings, email, firstName, lastName, copy.guest]);
 
   const todayStart = useMemo(() => {
     const now = new Date();
@@ -191,31 +247,40 @@ const GuestPortal: React.FC = () => {
   const title = useMemo(() => profile?.websiteTitle || profile?.name || "Guest Portal", [profile]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="guest-portal min-h-screen flex items-center justify-center" role="status">{copy.loading}</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
-      <header className="bg-white shadow-sm">
+    <div className="guest-portal min-h-screen text-gray-800">
+      <header className="guest-header">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="font-bold text-lg" style={{ color: profile?.primaryColor || "#2E5D4B" }}>
             {title}
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            <a href="/" className="text-gray-600 hover:text-gray-900">Back to website</a>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <LanguageSelector />
+            <a href="/" className="text-gray-600 hover:text-gray-900">{copy.back}</a>
             {isLoggedIn && (
-              <button onClick={handleLogout} className="text-red-600 hover:text-red-700">Logout</button>
+              <button onClick={handleLogout} className="text-red-600 hover:text-red-700">{copy.logout}</button>
             )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      <main className="guest-main max-w-5xl mx-auto px-6 py-10">
         {!isLoggedIn ? (
-          <div className="bg-white p-6 rounded-lg shadow-sm max-w-md mx-auto">
-            <h2 className="text-2xl font-bold mb-2">Guest Login</h2>
+          <section className="guest-auth-layout">
+            <aside className="guest-welcome">
+              <div className="guest-eyebrow">MILANO · {title}</div>
+              <h1>{copy.intro}</h1>
+              <p>{copy.subtitle}</p>
+              <ul><li>{copy.benefit1}</li><li>{copy.benefit2}</li><li>{copy.benefit3}</li></ul>
+              <a href="/">{copy.newBooking} <span aria-hidden="true">↗</span></a>
+            </aside>
+            <div className="guest-auth-card">
+            <h2 className="text-2xl font-bold mb-2">{copy.loginTitle}</h2>
             <p className="text-sm text-gray-500 mb-6">
-              Use the same email you used for your reservation. You can book without an account and create one later.
+              {copy.sameEmail}
             </p>
 
             <div className="flex gap-2 mb-6">
@@ -224,14 +289,14 @@ const GuestPortal: React.FC = () => {
                 onClick={() => setAuthMode("login")}
                 className={`flex-1 py-2 rounded ${authMode === "login" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
               >
-                Login
+                {copy.login}
               </button>
               <button
                 type="button"
                 onClick={() => setAuthMode("register")}
                 className={`flex-1 py-2 rounded ${authMode === "register" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
               >
-                Create Account
+                {copy.register}
               </button>
             </div>
 
@@ -239,27 +304,30 @@ const GuestPortal: React.FC = () => {
               {authMode === "register" && (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">First Name</label>
+                    <label htmlFor="guest-first-name" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.firstName}</label>
                     <input
-                      type="text"
+                      type="text" id="guest-first-name" autoComplete="given-name" required
                       className="w-full border rounded px-3 py-2"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Last Name</label>
+                    <label htmlFor="guest-last-name" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.lastName}</label>
                     <input
-                      type="text"
+                      type="text" id="guest-last-name" autoComplete="family-name" required
                       className="w-full border rounded px-3 py-2"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Phone</label>
+                    <label htmlFor="guest-phone" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.phone}</label>
                     <input
                       type="tel"
+                      id="guest-phone"
+                      autoComplete="tel"
+                      required
                       className="w-full border rounded px-3 py-2"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -268,75 +336,86 @@ const GuestPortal: React.FC = () => {
                 </>
               )}
               <div>
-                <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Email</label>
+                <label htmlFor="guest-email" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.email}</label>
                 <input
                   type="email"
+                  id="guest-email"
+                  autoComplete="email"
+                  required
                   className="w-full border rounded px-3 py-2"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Password</label>
+                <label htmlFor="guest-password" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.password}</label>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                  required
+                  id="guest-password"
                   className="w-full border rounded px-3 py-2"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              <div className="flex justify-end">
-                <a href="/guest/forgot-password" className="text-xs text-blue-600 hover:underline">Forgot Password?</a>
+              <div className="flex justify-between gap-4">
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-xs underline">{showPassword ? copy.hide : copy.show}</button>
+                <a href="/guest/forgot-password" className="text-xs text-blue-600 hover:underline">{copy.forgot}</a>
               </div>
-              {authError && <div className="text-red-600 text-sm">{authError}</div>}
+              {authError && <div role="alert" className="text-red-600 text-sm">{authError}</div>}
               <button
                 type="submit"
+                disabled={authLoading}
                 className="w-full py-2 rounded text-white font-semibold"
                 style={{ background: profile?.primaryColor || "#2E5D4B" }}
               >
-                {authMode === "login" ? "Login" : "Create Account"}
+                {authLoading ? copy.busy : authMode === "login" ? copy.login : copy.register}
               </button>
             </form>
           </div>
+          </section>
         ) : (
-          <div>
+          <div className="guest-reservations">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div>
-                <div className="text-sm text-gray-500">Welcome</div>
+                <div className="text-sm text-gray-500">{copy.welcome}</div>
                 <h2 className="text-2xl font-bold">{guestName}</h2>
               </div>
               <button
                 onClick={() => token && loadBookings(token)}
                 className="text-sm text-gray-600 hover:text-gray-900"
               >
-                Refresh
+                {copy.refresh}
               </button>
             </div>
 
+            <a href="/" className="guest-new-stay">{copy.newBooking} ↗</a>
+            {bookingsError && <p role="alert" className="text-red-600 mb-4">{bookingsError}</p>}
             <div className="flex items-center gap-2 mb-6">
               <button
                 type="button"
                 onClick={() => setReservationFilter("upcoming")}
                 className={`px-3 py-2 text-sm rounded ${reservationFilter === "upcoming" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
               >
-                To Check In / Upcoming
+                {copy.upcoming}
               </button>
               <button
                 type="button"
                 onClick={() => setReservationFilter("past")}
                 className={`px-3 py-2 text-sm rounded ${reservationFilter === "past" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
               >
-                Past
+                {copy.past}
               </button>
             </div>
 
             {bookingsLoading ? (
-              <div className="bg-white p-6 rounded-lg">Loading reservations...</div>
-            ) : (reservationFilter === "upcoming" ? upcomingReservations : pastReservations).length === 0 ? (
+              <div className="bg-white p-6 rounded-lg">{copy.loadingBookings}</div>
+            ) : bookingsError ? null : (reservationFilter === "upcoming" ? upcomingReservations : pastReservations).length === 0 ? (
               <div className="bg-white p-6 rounded-lg">
                 {reservationFilter === "upcoming"
-                  ? "No upcoming reservations found."
-                  : "No past reservations found."}
+                  ? copy.noUpcoming
+                  : copy.noPast}
               </div>
             ) : (
               <div className="space-y-4">
@@ -346,33 +425,33 @@ const GuestPortal: React.FC = () => {
                   <div key={booking.id} className="bg-white p-6 rounded-lg shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm text-gray-500">Reservation</div>
+                        <div className="text-sm text-gray-500">{copy.reservation}</div>
                         <div className="text-lg font-semibold">{booking.bookingNumber || `#${booking.id}`}</div>
                       </div>
-                      <div className="text-sm text-gray-600">Booked on {formatDate(booking.createdAt)}</div>
+                      <div className="text-sm text-gray-600">{copy.bookedOn} {formatDate(booking.createdAt)}</div>
                       <button
                         onClick={() => handlePrint(booking)}
                         className="px-3 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50"
                       >
-                        Receipt
+                        {copy.receipt}
                       </button>
                     </div>
 
                     <div className="mt-4 grid md:grid-cols-2 gap-4 text-sm">
                       {guestNotes.checkIn && (
                         <div>
-                          <div className="text-gray-500">Check-in Name</div>
+                          <div className="text-gray-500">{copy.checkInName}</div>
                           <div className="font-medium">{guestNotes.checkIn}</div>
                         </div>
                       )}
                       {guestNotes.additional && (
                         <div>
-                          <div className="text-gray-500">Additional Guests</div>
+                          <div className="text-gray-500">{copy.additional}</div>
                           <div className="font-medium">{guestNotes.additional}</div>
                         </div>
                       )}
                       <div>
-                        <div className="text-gray-500">Guest</div>
+                        <div className="text-gray-500">{copy.guest}</div>
                         <div className="font-medium">
                           {(booking.guest?.firstName || booking.guest?.lastName)
                             ? `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim()
@@ -380,31 +459,31 @@ const GuestPortal: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Dates</div>
+                        <div className="text-gray-500">{copy.dates}</div>
                         <div className="font-medium">{formatDate(booking.checkInDate)} — {formatDate(booking.checkOutDate)}</div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Room</div>
-                        <div className="font-medium">{booking.room?.roomType || "Room"}</div>
+                        <div className="text-gray-500">{copy.room}</div>
+                        <div className="font-medium">{booking.room?.roomType || copy.room}</div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Guests</div>
+                        <div className="text-gray-500">{copy.guests}</div>
                         <div className="font-medium">{booking.numberOfGuests}</div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Extras</div>
+                        <div className="text-gray-500">{copy.extras}</div>
                         <div className="font-medium">
-                          {booking.breakfastCount > 0 ? `Breakfast x${booking.breakfastCount}` : "No breakfast"}
-                          {booking.parkingIncluded ? " + Parking" : ""}
+                          {booking.breakfastCount > 0 ? `${copy.breakfast} ×${booking.breakfastCount}` : copy.noBreakfast}
+                          {booking.parkingIncluded ? ` + ${copy.parking}` : ""}
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Total</div>
+                        <div className="text-gray-500">{copy.total}</div>
                         <div className="font-medium">€{booking.totalPrice.toFixed(2)}</div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Status</div>
-                        <div className="font-medium">{booking.bookingStatus}</div>
+                        <div className="text-gray-500">{copy.status}</div>
+                        <div className="font-medium">{{ CONFIRMED: copy.confirmed, CANCELLED: copy.cancelled, CHECKED_IN: copy.checkedIn, CHECKED_OUT: copy.checkedOut }[booking.bookingStatus] || booking.bookingStatus}</div>
                       </div>
                     </div>
 

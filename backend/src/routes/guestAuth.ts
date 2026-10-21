@@ -7,7 +7,7 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 
 const router = Router();
-const GUEST_JWT_SECRET = process.env.GUEST_JWT_SECRET || process.env.JWT_SECRET || "secret_jwt_key_change_in_production";
+import { getJwtSecret } from "../utils/authConfig";
 
 
 router.post("/register", async (req: Request, res: Response) => {
@@ -38,7 +38,7 @@ router.post("/register", async (req: Request, res: Response) => {
           data: { firstName, lastName, email, phone },
         });
 
-    const token = jwt.sign({ email: account.email }, GUEST_JWT_SECRET, { expiresIn: "7d" } as any);
+    const token = jwt.sign({ email: account.email }, getJwtSecret(true), { expiresIn: "7d" } as any);
 
     return res.json({
       message: "Guest account created",
@@ -80,7 +80,7 @@ router.post("/login", async (req: Request, res: Response) => {
           },
         });
 
-    const token = jwt.sign({ email: account.email }, GUEST_JWT_SECRET, { expiresIn: "7d" } as any);
+    const token = jwt.sign({ email: account.email }, getJwtSecret(true), { expiresIn: "7d" } as any);
 
     return res.json({
       message: "Login successful",
@@ -200,13 +200,13 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
-      secure: true,
+      secure: Number(process.env.SMTP_PORT) === 465,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
     });
-    const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/reset-password?token=${token}`;
+    const resetUrl = `${(process.env.FRONTEND_URL || "http://localhost:3000").replace(/[/]$/, "")}/guest/reset-password?token=${token}`;
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: email,
