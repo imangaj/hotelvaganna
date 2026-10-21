@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db";
-import { sendBookingEmails } from "../utils/mailer";
+import { processBookingEmailQueue } from "../utils/bookingEmailQueue";
+import { randomUUID } from "crypto";
 import { sendPushToAll } from "../utils/push";
 
 const router = Router();
@@ -115,7 +116,16 @@ router.post("/", async (req: Request, res: Response) => {
       paidAmount = 0
     } = req.body;
 
-    const bookingNumber = `BK-${Date.now()}`;
+    const checkoutKey = typeof req.body.checkoutKey === "string" ? req.body.checkoutKey : undefined;
+    if (checkoutKey) {
+      if (!/^cs_[A-Za-z0-9_]+:\d+$/.test(checkoutKey) || checkoutKey.length > 220) return res.status(400).json({ message: "Invalid checkout reference" });
+      const existing = await prisma.booking.findUnique({ where: { checkoutKey } });
+      if (existing) {
+        if (existing.guestId !== Number(guestId)) return res.status(409).json({ message: "Checkout already used" });
+        return res.status(200).json(existing);
+      }
+    }
+    const bookingNumber = "BK-" + randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase();
     const total = parseFloat(totalPrice);
     const paid = parseFloat(paidAmount);
     
@@ -129,9 +139,31 @@ router.post("/", async (req: Request, res: Response) => {
     checkIn.setHours(15, 0, 0, 0);
     checkOut.setHours(11, 0, 0, 0);
 
+    if (!Number.isFinite(total) || total < 0 || !Number.isFinite(paid) || paid < 0 ||
+        !Number.isFinite(checkIn.getTime()) || !Number.isFinite(checkOut.getTime()) || checkOut <= checkIn) {
+      return res.status(400).json({ message: "Invalid booking dates or amounts" });
+    }
+    const [emailGuest, emailRoom] = await Promise.all([
+      prisma.guest.findUnique({ where: { id: Number(guestId) } }),
+      prisma.room.findUnique({ where: { id: Number(roomId) }, include: { roomType: true } }),
+    ]);
+    if (!emailGuest || !emailRoom) return res.status(400).json({ message: "Guest or room not found" });
+    const hotelEmail = process.env.BOOKING_NOTIFICATION_EMAIL || "hotel.valganna@libero.it";
+    const payloadJson = JSON.stringify({
+      bookingNumber, checkInDate: checkIn, checkOutDate: checkOut, totalPrice: total, paidAmount: paid, paymentStatus,
+      guestEmail: emailGuest.email, guestName: [emailGuest.firstName,emailGuest.lastName].filter(Boolean).join(" "),
+      guestPhone: emailGuest.phone, numberOfGuests: Number(numberOfGuests), breakfastCount: Number(breakfastCount),
+      parkingIncluded: Boolean(parkingIncluded), roomNumber: emailRoom.roomNumber, roomType: emailRoom.roomType.name,
+      hotelEmail, notes, source, reservationUrl: (process.env.FRONTEND_URL || "https://hotelvalganna.it").replace(/[/]$/, "") + "/guest?reference=" + encodeURIComponent(bookingNumber),
+    });
+    const deliveryJobs = [{ recipientType: "HOTEL", recipientEmail: hotelEmail, payloadJson }];
+    if (emailGuest.email) deliveryJobs.push({ recipientType: "GUEST", recipientEmail: emailGuest.email, payloadJson });
+    // Nested writes commit the booking and both delivery jobs atomically.
     const booking = await prisma.booking.create({
       data: {
         bookingNumber,
+        checkoutKey,
+        emailDeliveries: { create: deliveryJobs },
         propertyId: parseInt(propertyId),
         roomId: parseInt(roomId),
         guestId: parseInt(guestId),
@@ -162,34 +194,7 @@ router.post("/", async (req: Request, res: Response) => {
         }
       });
 
-      const hotelProfile = await prisma.hotelProfile.findFirst();
-      const hotelEmail = hotelProfile?.email || process.env.HOTEL_EMAIL || "hotel.valganna@libero.it";
-
-      if (fullBooking) {
-        setImmediate(() => {
-          sendBookingEmails({
-            bookingNumber: fullBooking.bookingNumber,
-            checkInDate: fullBooking.checkInDate,
-            checkOutDate: fullBooking.checkOutDate,
-            totalPrice: fullBooking.totalPrice,
-            guestEmail: fullBooking.guest.email,
-            guestPhone: fullBooking.guest.phone,
-            numberOfGuests: fullBooking.numberOfGuests,
-            breakfastCount: fullBooking.breakfastCount,
-            parkingIncluded: fullBooking.parkingIncluded,
-            notes: fullBooking.notes,
-            paidAmount: fullBooking.paidAmount,
-            paymentStatus: fullBooking.paymentStatus,
-            guestName: `${fullBooking.guest.firstName} ${fullBooking.guest.lastName}`.trim(),
-            roomNumber: fullBooking.room?.roomNumber,
-            roomType: fullBooking.room?.roomType?.name,
-            hotelEmail,
-            source: fullBooking.source
-          }).catch((err) => {
-            console.error("Email sending failed", err);
-          });
-        });
-      }
+      void processBookingEmailQueue();
 
       if (isWebsiteBooking && fullBooking) {
         const guestName = `${fullBooking.guest?.firstName || ""} ${fullBooking.guest?.lastName || ""}`.trim() || "Guest";
@@ -206,7 +211,12 @@ router.post("/", async (req: Request, res: Response) => {
 
     res.status(201).json(booking);
   } catch (error) {
-    res.status(500).json({ message: "Failed to create booking", error });
+    const checkoutKey = req.body?.checkoutKey;
+    if ((error as any)?.code === "P2002" && typeof checkoutKey === "string") {
+      const existing = await prisma.booking.findUnique({ where: { checkoutKey } });
+      if (existing && existing.guestId === Number(req.body.guestId)) return res.status(200).json(existing);
+    }
+    res.status(500).json({ message: "Failed to create booking" });
   }
 });
 

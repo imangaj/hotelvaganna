@@ -15,6 +15,8 @@ jobs:
           node-version: "24"
       - name: Session and email regression checks
         run: node --test scripts/auth-booking-regression.test.cjs
+      - name: Additive database migration checks
+        run: python3 scripts/test-email-migration.py
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

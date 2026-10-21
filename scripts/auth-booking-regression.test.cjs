@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 function load(file, replacements = {}, globals = {}) {
   let code = fs.readFileSync(path.join(root, file), "utf8");
   for (const [from, to] of Object.entries(replacements)) code = code.replace(from, to);
+  code = code.replace(/\bexport (?=(?:class|const|function|interface|type)\b)/g, "");
   code = stripTypeScriptTypes(code, { mode: "strip" });
   const context = { console, process: { env: {} }, setTimeout: (fn) => fn(), ...globals };
   vm.runInNewContext(code, context, { filename: file });
@@ -97,12 +98,15 @@ function mailer(sendMail, env = {}) {
   let config;
   const context = load("backend/src/utils/mailer.ts", {
     'import nodemailer from "nodemailer";': "",
+    'import axios from "axios";': "",
     "export const sendBookingEmails": "globalThis.sendBookingEmails",
+    "export const sendBookingEmail": "globalThis.sendBookingEmail",
   }, {
     process: { env: { SMTP_HOST: "smtp.example.com", SMTP_PORT: "587", SMTP_USER: "sender@example.com", SMTP_PASS: "test-only", ...env } },
     nodemailer: { createTransport: value => { config = value; return { sendMail }; } },
+    axios: { post: async () => { throw new Error("Unexpected HTTP delivery in SMTP test"); } },
   });
-  return { send: context.sendBookingEmails, config: () => config };
+  return { send: context.sendBookingEmails, sendOne: context.sendBookingEmail, config: () => config };
 }
 
 test("Hotel receives full reservation even when guest delivery fails", async () => {
@@ -141,5 +145,84 @@ test("Transient hotel SMTP failure retries only hotel; TLS follows port 465", as
 
 test("Missing SMTP configuration is an explicit failure", async () => {
   const m = mailer(async () => assert.fail("Must not send"), { SMTP_PASS: "" });
-  await assert.rejects(m.send(payload), /SMTP_HOST/);
+  await assert.rejects(m.sendOne(payload, "HOTEL"), /SMTP_HOST/);
+});
+
+test("HTTPS mail uses the verified sender and a stable idempotency key", async () => {
+  const requests = [];
+  const context = load("backend/src/utils/mailer.ts", {
+    'import nodemailer from "nodemailer";': "",
+    'import axios from "axios";': "",
+    "export const sendBookingEmail": "globalThis.sendBookingEmail",
+  }, {
+    process: { env: { MAIL_PROVIDER: "resend", RESEND_API_KEY: "private-test-key", MAIL_FROM: "Hotel Valganna <reservations@hotelvalganna.it>" } },
+    axios: { post: async (url, data, config) => { requests.push({ url, data, config }); return { data: { id: "provider-id" } }; } },
+  });
+  assert.equal(await context.sendBookingEmail(payload, "GUEST", "booking-delivery-10"), "provider-id");
+  assert.equal(requests[0].url, "https://api.resend.com/emails");
+  assert.equal(requests[0].data.to[0], payload.guestEmail);
+  assert.equal(requests[0].data.reply_to, payload.hotelEmail);
+  assert.equal(requests[0].config.headers["Idempotency-Key"], "booking-delivery-10");
+  assert.ok(!requests[0].data.html.includes("<script>"));
+});
+
+test("Provider errors are sanitized before they reach queue logs", async () => {
+  const context = load("backend/src/utils/mailer.ts", {
+    'import nodemailer from "nodemailer";': "",
+    'import axios from "axios";': "",
+    "export const sendBookingEmail": "globalThis.sendBookingEmail",
+  }, {
+    process: { env: { MAIL_PROVIDER: "resend", RESEND_API_KEY: "private-test-key", MAIL_FROM: "reservations@example.test" } },
+    axios: { post: async () => { const error = new Error("Bearer private-test-key"); error.response = { status: 403 }; throw error; } },
+  });
+  await assert.rejects(context.sendBookingEmail(payload, "HOTEL", "booking-delivery-11"), error => {
+    assert.equal(error.code, "EMAIL_API_HTTP_403");
+    assert.ok(!error.message.includes("private-test-key"));
+    return true;
+  });
+});
+
+test("Room photo mappings match the real category, with a neutral fallback", () => {
+  const context = load("frontend/src/public/hotelMedia.ts", { "export const roomImage": "globalThis.roomImage", "export const safeReturnPath": "globalThis.safeReturnPath" });
+  assert.equal(context.roomImage("Matrimoniale piccola"), "/matrimoniale%20piccola.jpg");
+  assert.equal(context.roomImage("Familiare"), "/familiare.jpg");
+  assert.equal(context.roomImage("unconfigured category"), "/banner.png");
+  assert.equal(context.safeReturnPath("//evil.test"), null);
+  assert.equal(context.safeReturnPath("/booking-malicious"), null);
+  assert.equal(context.safeReturnPath("/booking?rooms=2"), "/booking?rooms=2");
+});
+
+test("Printable confirmations escape personal content and use recorded payment totals", () => {
+  const copy = load("frontend/src/public/hotelCopy.ts", {
+    'import { Language } from "../i18n/translations";': "",
+    "export const hotelCopy: Record<Language, typeof en>": "globalThis.hotelCopy",
+  });
+  const context = load("frontend/src/utils/receipt.ts", {
+    'import { roomImage } from "../public/hotelMedia";': "",
+    'import { hotelCopy } from "../public/hotelCopy";': "",
+    'import { hotelCompany } from "../public/hotelCompany";': "",
+    "export const buildReservationReceiptHtml": "globalThis.buildReservationReceiptHtml",
+  }, {
+    hotelCopy: copy.hotelCopy,
+    hotelCompany: { name: "Hotel Valganna", vatNumber: "03192130965" },
+    roomImage: () => "/familiare.jpg",
+    URL, Intl, Date,
+    window: { location: { origin: "https://hotelvalganna.it" } },
+  });
+  const html = context.buildReservationReceiptHtml({
+    booking: {
+      id: 1, bookingNumber: "BK-actual", checkInDate: "2026-11-01T14:00:00Z", checkOutDate: "2026-11-03T10:00:00Z",
+      totalPrice: 250, paidAmount: 150, numberOfGuests: 2, room: { roomType: "Familiare" },
+      guest: { firstName: "<script>guest</script>", email: "guest@example.test" },
+    },
+    language: "en", rulesContent: "<img src=x onerror=alert(1)>",
+  });
+  assert.ok(html.includes("https://hotelvalganna.it/familiare.jpg"));
+  assert.ok(html.includes("&lt;script&gt;"));
+  assert.ok(!html.includes("<script>"));
+  assert.ok(!html.includes("<img src=x"));
+  assert.ok(html.includes("€250.00"));
+  assert.ok(html.includes("€150.00"));
+  assert.ok(html.includes("€100.00"));
+  assert.ok(!html.includes("Daily Rates"));
 });

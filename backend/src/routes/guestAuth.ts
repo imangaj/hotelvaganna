@@ -131,6 +131,8 @@ router.get("/bookings", requireGuestAuth, async (req: GuestAuthRequest, res: Res
       room: {
         id: booking.room.id,
         roomNumber: booking.room.roomNumber,
+        roomTypeId: booking.room.roomTypeId,
+        description: booking.room.roomType?.description,
         roomType: booking.room.roomType?.name,
       },
     }));

@@ -6,10 +6,11 @@ import PublicSite from "./public/PublicSite";
 import GuestPortal from "./public/GuestPortal";
 import GuestForgotPassword from "./pages/GuestForgotPassword";
 import GuestResetPassword from "./pages/GuestResetPassword";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import "./styles/global.css";
 
-function App() {
+function AppContent() {
+  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -39,7 +40,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (import.meta.env.VITE_APP_MODE === "admin" || window.location.pathname.startsWith("/admin")) validateSession();
+    if (import.meta.env.VITE_APP_MODE === "admin" || location.pathname.startsWith("/admin")) validateSession();
     else setIsLoading(false);
     const expired = () => setIsAuthenticated(false);
     const storageChanged = (event: StorageEvent) => {
@@ -51,7 +52,7 @@ function App() {
       window.removeEventListener("staff-session-expired", expired);
       window.removeEventListener("storage", storageChanged);
     };
-  }, []);
+  }, [location.pathname]);
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
@@ -64,8 +65,8 @@ function App() {
   };
 
   const appMode = import.meta.env.VITE_APP_MODE as "public" | "admin" | "guest" | undefined;
-  const isAdminRoute = appMode === "admin" || (!appMode && window.location.pathname.startsWith("/admin"));
-  const isGuestRoute = appMode === "guest" || (!appMode && window.location.pathname.startsWith("/guest"));
+  const isAdminRoute = appMode === "admin" || (!appMode && location.pathname.startsWith("/admin"));
+  const isGuestRoute = appMode === "guest" || location.pathname.startsWith("/guest");
   const isPublicRoute = appMode === "public" || !appMode;
 
   if (isLoading && isAdminRoute) {
@@ -73,7 +74,7 @@ function App() {
   }
 
   return (
-    <Router>
+    <>
       {isAdminRoute ? (
         sessionError ? (
           <div className="min-h-screen flex flex-col items-center justify-center gap-4"><p>Unable to connect. Your session has been kept.</p><button onClick={validateSession}>Try again</button></div>
@@ -94,8 +95,9 @@ function App() {
       ) : isPublicRoute ? (
         <PublicSite />
       ) : null}
-    </Router>
+    </>
   );
 }
 
+function App() { return <Router><AppContent /></Router>; }
 export default App;

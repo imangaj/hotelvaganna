@@ -1,507 +1,157 @@
-import LanguageSelector from "../components/LanguageSelector";
-import { guestPortalCopy } from "./guestPortalCopy";
-import "./GuestPortal.css";
 import React, { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowRight, ArrowUpRight, BedDouble, Check, CalendarDays, Mail, Phone, Printer, RefreshCw, ChevronLeft } from "lucide-react";
 import { guestAuthAPI, hotelProfileAPI } from "../api/endpoints";
-import { buildReservationReceiptHtml } from "../utils/receipt";
+import { printReservationReceipt } from "../utils/receipt";
 import { useLanguage } from "../contexts/LanguageContext";
+import { guestPortalCopy } from "./guestPortalCopy";
+import { hotelCopy } from "./hotelCopy";
+import { HotelFrame, RoomPhoto } from "./HotelFrame";
+import { roomImage, safeReturnPath } from "./hotelMedia";
 
-interface Booking {
-  id: number;
-  bookingNumber?: string;
-  checkInDate: string;
-  checkOutDate: string;
-  numberOfGuests: number;
-  totalPrice: number;
-  paidAmount: number;
-  paymentStatus: string;
-  bookingStatus: string;
-  breakfastCount: number;
-  parkingIncluded: boolean;
-  createdAt: string;
-  notes?: string;
+type Booking = {
+  id: number; bookingNumber?: string; checkInDate: string; checkOutDate: string; numberOfGuests: number;
+  totalPrice: number; paidAmount: number; paymentStatus: string; bookingStatus: string; breakfastCount: number;
+  parkingIncluded: boolean; createdAt: string; notes?: string;
   guest?: { firstName?: string; lastName?: string; email?: string; phone?: string };
-  room?: { roomNumber?: string; roomType?: string };
+  room?: { roomNumber?: string; roomType?: string; roomTypeId?: number; description?: string };
   property?: { name?: string; address?: string; city?: string; country?: string; phone?: string; email?: string };
-}
-
+};
 const GuestPortal: React.FC = () => {
-  const { language } = useLanguage();
-  const copy = guestPortalCopy[language];
-  const [authLoading, setAuthLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [bookingsError, setBookingsError] = useState("");
+  const { language } = useLanguage(); const auth = guestPortalCopy[language]; const t = hotelCopy[language];
+  const location = useLocation(); const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [authError, setAuthError] = useState("");
   const [token, setToken] = useState<string | null>(localStorage.getItem("guestToken"));
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [form, setForm] = useState({ email: "", password: "", firstName: "", lastName: "", phone: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
-  const [reservationFilter, setReservationFilter] = useState<"upcoming" | "past">("upcoming");
+  const [loading, setLoading] = useState(!!token);
+  const [historyError, setHistoryError] = useState(false);
+  const [filter, setFilter] = useState<"upcoming" | "past">("upcoming");
+  const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const bookingId = Number(location.pathname.match(/\/reservations\/(\d+)/)?.[1]);
+  const booking = bookings.find(item => item.id === bookingId);
+  const confirmedIds = (params.get("confirmed") || "").split(",").map(Number);
+  const confirmed = params.has("confirmed") && (booking ? booking.bookingStatus === "CONFIRMED" : bookings.some(item => confirmedIds.includes(item.id) && item.bookingStatus === "CONFIRMED"));
+  const returnTo = safeReturnPath(params.get("returnTo"));
+  const locale = language === "it" ? "it-IT" : language === "zh" ? "zh-CN" : "en-GB";
+  const money = (amount: number) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(amount);
+  const date = (value: string) => new Date(value).toLocaleDateString(locale, { timeZone: "Europe/Rome", day: "numeric", month: "short", year: "numeric" });
+  const guestName = [form.firstName, form.lastName].filter(Boolean).join(" ") || form.email;
+  const nights = (item: Booking) => Math.max(1, Math.round((Date.parse(item.checkOutDate) - Date.parse(item.checkInDate)) / 86400000));
+  const stateLabel = (state: string) => ({ CONFIRMED: t.statusConfirmed, CANCELLED: t.cancelled, CHECKED_IN: t.checkedIn, CHECKED_OUT: t.checkedOut, PAID: t.paid, PENDING: t.pending, PARTIAL: t.partial }[state] || state);
+  const localized = (value: any, fallback = "") => typeof value === "string" ? value : value?.[language] || value?.en || fallback;
 
+  useEffect(() => { hotelProfileAPI.get().then(({ data }) => setProfile(data)).catch(() => {}); }, []);
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const res = await hotelProfileAPI.get();
-        setProfile(res.data || null);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProfile();
-  }, []);
-
-  const isLoggedIn = !!token;
-
-  const loadBookings = async (guestToken: string) => {
-    setBookingsLoading(true);
-    setBookingsError("");
-    try {
-      const res = await guestAuthAPI.getBookings(guestToken);
-      if (localStorage.getItem("guestToken") === guestToken) setBookings(res.data || []);
-    } catch (error: any) {
-      if (localStorage.getItem("guestToken") !== guestToken) return;
-      if (error.response?.status === 401) {
-        localStorage.removeItem("guestToken");
-        setToken(null);
-        setBookings([]);
-        setAuthError(copy.expired);
-      } else {
-        setBookingsError(copy.loadFailed);
-      }
-    } finally {
-      setBookingsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (token) {
-      guestAuthAPI.me(token).then(({ data }) => {
-        if (localStorage.getItem("guestToken") !== token) return;
-        setEmail(data.email || "");
-        setFirstName(data.firstName || "");
-        setLastName(data.lastName || "");
-        setPhone(data.phone || "");
-      }).catch((error) => {
-        if (localStorage.getItem("guestToken") !== token) return;
-        if (error.response?.status === 401) {
-          setToken(null);
-          setBookings([]);
-          setAuthError(copy.expired);
-        }
-      });
-      loadBookings(token);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    const expired = () => {
-      setToken(null);
-      setBookings([]);
-      setAuthError(guestPortalCopy[language].expired);
-    };
-    const changed = (event: StorageEvent) => {
-      if (event.key === "guestToken") {
-        setToken(localStorage.getItem("guestToken"));
-        setBookings([]);
-      }
-    };
+    const expired = () => { setToken(null); setBookings([]); setError(auth.expired); setLoading(false); };
+    const changed = (event: StorageEvent) => { if (event.key === "guestToken" || event.key === null) { setToken(localStorage.getItem("guestToken")); setBookings([]); } };
     window.addEventListener("guest-session-expired", expired);
     window.addEventListener("storage", changed);
-    return () => {
-      window.removeEventListener("guest-session-expired", expired);
-      window.removeEventListener("storage", changed);
-    };
-  }, [language]);
+    return () => { window.removeEventListener("guest-session-expired", expired); window.removeEventListener("storage", changed); };
+  }, [auth.expired]);
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authLoading) return;
-    setAuthError("");
-
-    if (!email || !password) {
-      setAuthError(copy.required);
-      return;
-    }
-
-    if (authMode === "register" && (!firstName || !lastName || !phone)) {
-      setAuthError(copy.nameRequired);
-      return;
-    }
-
-    setAuthLoading(true);
+  const load = async (savedToken: string) => {
+    setLoading(true); setHistoryError(false);
     try {
-      const res = authMode === "login"
-        ? await guestAuthAPI.login({ email: email.trim(), password })
-        : await guestAuthAPI.register({ email: email.trim(), password, firstName, lastName, phone });
-
-      const newToken = res.data?.token;
-      const guestProfile = res.data?.guest;
-      if (!newToken) {
-        setAuthError(copy.authFailed);
-        return;
-      }
-      localStorage.setItem("guestToken", newToken);
-      setBookings([]);
-      setToken(newToken);
-      setPassword("");
-      if (guestProfile) {
-        setFirstName(guestProfile.firstName || "");
-        setLastName(guestProfile.lastName || "");
-        setPhone(guestProfile.phone || "");
-      }
-    } catch (error: any) {
-      setAuthError(error.response?.status === 409 ? (language === "it" ? "Account già esistente. Accedi o reimposta la password." : language === "zh" ? "账户已存在，请登录或重置密码。" : "An account already exists. Sign in or reset your password.") : copy.authFailed);
-    } finally {
-      setAuthLoading(false);
-    }
+      const [guest, history] = await Promise.all([guestAuthAPI.me(savedToken), guestAuthAPI.getBookings(savedToken)]);
+      if (localStorage.getItem("guestToken") !== savedToken) return;
+      setForm(previous => ({ ...previous, ...guest.data, password: "" }));
+      setBookings(history.data || []);
+      const reference = params.get("reference");
+      const target = reference && (history.data || []).find((item: Booking) => item.bookingNumber === reference);
+      if (target) navigate("/guest/reservations/" + target.id, { replace: true });
+    } catch (failure: any) {
+      if (localStorage.getItem("guestToken") !== savedToken) return;
+      if (failure.response?.status === 401) {
+        localStorage.removeItem("guestToken"); setToken(null); setBookings([]); setError(auth.expired);
+      } else setHistoryError(true);
+    } finally { if (localStorage.getItem("guestToken") === savedToken) setLoading(false); }
   };
+  useEffect(() => { if (token) load(token); else setLoading(false); }, [token]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("guestToken");
-    setToken(null);
-    setBookings([]);
-    setAuthError("");
-    setBookingsError("");
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); if (busy) return; setError(""); setBusy(true);
+    try {
+      const data = { ...form, email: form.email.trim() };
+      const result = mode === "login" ? await guestAuthAPI.login(data) : await guestAuthAPI.register(data);
+      if (!result.data?.token) throw new Error();
+      localStorage.setItem("guestToken", result.data.token);
+      setBookings([]); setToken(result.data.token); setForm(previous => ({ ...previous, ...result.data.guest, password: "" }));
+      if (returnTo) navigate(returnTo);
+    } catch (failure: any) {
+      setError(failure.response?.status === 409 ? (language === "it" ? "Account già esistente. Accedi o reimposta la password." : language === "zh" ? "账户已存在，请登录或重置密码。" : "An account already exists. Sign in or reset your password.") : auth.authFailed);
+    } finally { setBusy(false); }
   };
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString(language === "it" ? "it-IT" : language === "zh" ? "zh-CN" : "en-GB", { timeZone: "Europe/Rome" });
-
-  const parseGuestNotes = (notes?: string) => {
-    if (!notes) return { checkIn: "", additional: "" };
-    const checkInMatch = notes.match(/Check-in guest:\s*([^|]+)/i);
-    const additionalMatch = notes.match(/Additional guests:\s*([^|]+)/i);
-    return {
-      checkIn: checkInMatch?.[1]?.trim() || "",
-      additional: additionalMatch?.[1]?.trim() || "",
-    };
+  const logout = () => { localStorage.removeItem("guestToken"); setToken(null); setBookings([]); setForm({ email: "", password: "", firstName: "", lastName: "", phone: "" }); setError(""); navigate("/guest"); };
+  const print = async (item: Booking) => {
+    try {
+      await printReservationReceipt({
+        booking: item, profile, language,
+        cityTaxPerPersonPerNight: Number(profile?.contentJson?.receipt?.cityTaxPerPersonPerNight || 0),
+        rulesTitle: localized(profile?.contentJson?.i18n?.rules?.title, profile?.contentJson?.rules?.title || t.rules),
+        rulesContent: localized(profile?.contentJson?.i18n?.rules?.content, profile?.contentJson?.rules?.content || profile?.policies || ""),
+      });
+    } catch { setError(t.error); }
   };
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const displayed = bookings.filter(item => {
+    if (confirmedIds.includes(item.id)) return true;
+    const checkoutDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.checkOutDate));
+    return filter === "upcoming" ? checkoutDay >= today : checkoutDay < today;
+  }).sort((a,b) => Number(confirmedIds.includes(b.id)) - Number(confirmedIds.includes(a.id)));
 
-  const guestName = useMemo(() => {
-    const fromBooking = bookings.find((b) => b.guest?.firstName || b.guest?.lastName)?.guest;
-    if (fromBooking?.firstName || fromBooking?.lastName) {
-      return `${fromBooking.firstName || ""} ${fromBooking.lastName || ""}`.trim();
-    }
-    if (firstName || lastName) {
-      return `${firstName} ${lastName}`.trim();
-    }
-    return email || copy.guest;
-  }, [bookings, email, firstName, lastName, copy.guest]);
-
-  const todayStart = useMemo(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  }, []);
-
-  const upcomingReservations = useMemo(() => {
-    return bookings.filter((booking) => {
-      const checkOut = new Date(booking.checkOutDate).getTime();
-      return checkOut >= todayStart;
-    });
-  }, [bookings, todayStart]);
-
-  const pastReservations = useMemo(() => {
-    return bookings.filter((booking) => {
-      const checkOut = new Date(booking.checkOutDate).getTime();
-      return checkOut < todayStart;
-    });
-  }, [bookings, todayStart]);
-
-  const handlePrint = (booking: Booking) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
-    const rulesTitle = profile?.contentJson?.i18n?.rules?.title?.[language]
-      || profile?.contentJson?.rules?.title
-      || "Hotel Rules";
-    const rulesContent = profile?.contentJson?.i18n?.rules?.content?.[language]
-      || profile?.contentJson?.rules?.content
-      || profile?.policies
-      || "";
-    const cityTax = Number(profile?.contentJson?.receipt?.cityTaxPerPersonPerNight ?? 7.4);
-
-    const html = buildReservationReceiptHtml({
-      booking,
-      profile,
-      language,
-      cityTaxPerPersonPerNight: isNaN(cityTax) ? 0 : cityTax,
-      rulesTitle,
-      rulesContent,
-    });
-
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  const title = useMemo(() => profile?.websiteTitle || profile?.name || "Guest Portal", [profile]);
-
-  if (loading) {
-    return <div className="guest-portal min-h-screen flex items-center justify-center" role="status">{copy.loading}</div>;
-  }
-
-  return (
-    <div className="guest-portal min-h-screen text-gray-800">
-      <header className="guest-header">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="font-bold text-lg" style={{ color: profile?.primaryColor || "#2E5D4B" }}>
-            {title}
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <LanguageSelector />
-            <a href="/" className="text-gray-600 hover:text-gray-900">{copy.back}</a>
-            {isLoggedIn && (
-              <button onClick={handleLogout} className="text-red-600 hover:text-red-700">{copy.logout}</button>
-            )}
-          </div>
+  return <HotelFrame profile={profile}>
+    <main className="hx-container hx-guest-page">
+      {!token ? <section className="hx-guest-auth hx-reveal">
+        <aside className="hx-guest-auth-visual"><RoomPhoto src="/banner.png" name={profile?.name || "Hotel Valganna"} eager/><div className="hx-guest-auth-visual-shade"/><div><p className="hx-eyebrow">MILANO · HOTEL VALGANNA</p><h1>{auth.intro}</h1><p>{auth.subtitle}</p></div></aside>
+        <div className="hx-guest-auth-form"><p className="hx-eyebrow">{t.account}</p><h2>{mode === "login" ? auth.loginTitle : auth.register}</h2><p>{auth.sameEmail}</p>
+          <div className="hx-tabs" role="tablist"><button role="tab" aria-selected={mode === "login"} onClick={() => { setMode("login"); setError(""); }}>{auth.login}</button><button role="tab" aria-selected={mode === "register"} onClick={() => { setMode("register"); setError(""); }}>{auth.register}</button></div>
+          <form onSubmit={submit}>
+            {mode === "register" && (["firstName","lastName","phone"] as const).map(key => <div className="hx-field" key={key}><label htmlFor={"guest-" + key}>{auth[key]}</label><input id={"guest-" + key} autoComplete={key === "firstName" ? "given-name" : key === "lastName" ? "family-name" : "tel"} type={key === "phone" ? "tel" : "text"} required value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })}/></div>)}
+            <div className="hx-field"><label htmlFor="guest-email">{auth.email}</label><input id="guest-email" type="email" autoComplete="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}/></div>
+            <div className="hx-field"><label htmlFor="guest-password">{auth.password}</label><input id="guest-password" type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} required value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}/></div>
+            <div className="hx-password-tools"><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? auth.hide : auth.show}</button><Link to="/guest/forgot-password">{auth.forgot}</Link></div>
+            {error && <p className="hx-alert" role="alert">{error}</p>}
+            <button className="hx-button" disabled={busy} type="submit">{busy ? auth.busy : mode === "login" ? auth.login : auth.register}<ArrowRight size={17}/></button>
+          </form>
         </div>
-      </header>
-
-      <main className="guest-main max-w-5xl mx-auto px-6 py-10">
-        {!isLoggedIn ? (
-          <section className="guest-auth-layout">
-            <aside className="guest-welcome">
-              <div className="guest-eyebrow">MILANO · {title}</div>
-              <h1>{copy.intro}</h1>
-              <p>{copy.subtitle}</p>
-              <ul><li>{copy.benefit1}</li><li>{copy.benefit2}</li><li>{copy.benefit3}</li></ul>
-              <a href="/">{copy.newBooking} <span aria-hidden="true">↗</span></a>
-            </aside>
-            <div className="guest-auth-card">
-            <h2 className="text-2xl font-bold mb-2">{copy.loginTitle}</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              {copy.sameEmail}
-            </p>
-
-            <div className="flex gap-2 mb-6">
-              <button
-                type="button"
-                onClick={() => setAuthMode("login")}
-                className={`flex-1 py-2 rounded ${authMode === "login" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
-              >
-                {copy.login}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode("register")}
-                className={`flex-1 py-2 rounded ${authMode === "register" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
-              >
-                {copy.register}
-              </button>
-            </div>
-
-            <form onSubmit={handleAuth} className="space-y-4">
-              {authMode === "register" && (
-                <>
-                  <div>
-                    <label htmlFor="guest-first-name" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.firstName}</label>
-                    <input
-                      type="text" id="guest-first-name" autoComplete="given-name" required
-                      className="w-full border rounded px-3 py-2"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="guest-last-name" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.lastName}</label>
-                    <input
-                      type="text" id="guest-last-name" autoComplete="family-name" required
-                      className="w-full border rounded px-3 py-2"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="guest-phone" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.phone}</label>
-                    <input
-                      type="tel"
-                      id="guest-phone"
-                      autoComplete="tel"
-                      required
-                      className="w-full border rounded px-3 py-2"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </div>
-                </>
-              )}
-              <div>
-                <label htmlFor="guest-email" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.email}</label>
-                <input
-                  type="email"
-                  id="guest-email"
-                  autoComplete="email"
-                  required
-                  className="w-full border rounded px-3 py-2"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="guest-password" className="block text-xs font-semibold uppercase text-gray-500 mb-1">{copy.password}</label>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={authMode === "login" ? "current-password" : "new-password"}
-                  required
-                  id="guest-password"
-                  className="w-full border rounded px-3 py-2"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-between gap-4">
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-xs underline">{showPassword ? copy.hide : copy.show}</button>
-                <a href="/guest/forgot-password" className="text-xs text-blue-600 hover:underline">{copy.forgot}</a>
-              </div>
-              {authError && <div role="alert" className="text-red-600 text-sm">{authError}</div>}
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full py-2 rounded text-white font-semibold"
-                style={{ background: profile?.primaryColor || "#2E5D4B" }}
-              >
-                {authLoading ? copy.busy : authMode === "login" ? copy.login : copy.register}
-              </button>
-            </form>
+      </section> : loading ? <div className="hx-loading" role="status"><span className="hx-loader"/>{auth.loadingBookings}</div> :
+      historyError ? <div className="hx-loading"><p role="alert">{auth.loadFailed}</p><button className="hx-button" onClick={() => token && load(token)}>{t.retry}</button></div> :
+      bookingId ? booking ? <>
+        <div className="hx-guest-welcome"><Link className="hx-text-link" to="/guest"><ChevronLeft size={16}/>{t.backToStays}</Link><button className="hx-button hx-button-outline" onClick={() => print(booking)}><Printer size={17}/>{t.print}</button></div>
+        {confirmed && <div className="hx-confirmed-banner" role="status"><Check size={30}/><div><h2>{t.confirmed}</h2><p>{t.welcome}</p></div></div>}
+        <section className="hx-reservation-hero"><RoomPhoto src={roomImage(booking.room?.roomType)} name={booking.room?.roomType} eager/><div className="hx-reservation-hero-shade"/><div className="hx-reservation-hero-content"><span className={"hx-status " + (booking.bookingStatus === "CANCELLED" ? "hx-cancelled" : "")}><Check size={12}/>{stateLabel(booking.bookingStatus)}</span><h1>{booking.room?.roomType || t.yourRoom}</h1><p className="hx-eyebrow">{t.reservation} {booking.bookingNumber || "#" + booking.id}</p></div></section>
+        {error && <p className="hx-alert" role="alert">{error}</p>}
+        <div className="hx-reservation-detail-grid"><div>
+          <section className="hx-detail-panel"><p className="hx-eyebrow">{t.bookingDate} {date(booking.createdAt)}</p><h2>{t.summary}</h2><dl>
+            <div><dt>{t.checkIn}</dt><dd>{date(booking.checkInDate)}{profile?.checkInTime && <small> · {profile.checkInTime}</small>}</dd></div>
+            <div><dt>{t.checkOut}</dt><dd>{date(booking.checkOutDate)}{profile?.checkOutTime && <small> · {profile.checkOutTime}</small>}</dd></div>
+            <div><dt>{t.guests}</dt><dd>{booking.numberOfGuests} · {nights(booking)} {t.nights}</dd></div>
+            <div><dt>{t.details}</dt><dd>{[booking.guest?.firstName, booking.guest?.lastName].filter(Boolean).join(" ") || guestName}</dd></div>
+            <div><dt>{auth.email}</dt><dd>{booking.guest?.email}</dd></div><div><dt>{auth.phone}</dt><dd>{booking.guest?.phone || "—"}</dd></div>
+            {booking.breakfastCount > 0 && <div><dt>{t.breakfast}</dt><dd>{booking.breakfastCount} {t.people}</dd></div>}
+            {booking.parkingIncluded && <div><dt>{t.parking}</dt><dd>{t.statusConfirmed}</dd></div>}
+          </dl>{booking.room?.description && <p style={{ marginTop: 24 }}>{booking.room.description}</p>}{booking.room?.roomTypeId && <Link className="hx-text-link" to={"/rooms/" + booking.room.roomTypeId}>{t.roomDescription}<ArrowUpRight size={16}/></Link>}</section>
+          <section className="hx-detail-panel"><h2>{t.hotelInfo}</h2><p>{profile?.name || booking.property?.name}<br/>{profile?.address || booking.property?.address}<br/>{profile?.city || booking.property?.city}</p>{profile?.policies && <p>{profile.policies}</p>}<Link to="/policies" className="hx-text-link">{t.rules}<ArrowUpRight size={15}/></Link></section>
+        </div><aside><section className="hx-detail-panel"><p className="hx-eyebrow">{stateLabel(booking.paymentStatus)}</p><h2>{t.payment}</h2><div className="hx-detail-totals"><div><span>{t.stayTotal}</span><span>{money(booking.totalPrice)}</span></div><div><span>{t.paid}</span><span>{money(booking.paidAmount || 0)}</span></div><div><span>{t.balance}</span><span>{money(Math.max(0, booking.totalPrice - (booking.paidAmount || 0)))}</span></div></div><p className="hx-fine">{t.tax}</p><button className="hx-button" onClick={() => print(booking)}><Printer size={17}/>{t.print}</button></section><section className="hx-detail-panel hx-help"><h2>{t.bookingHelp}</h2><p>{t.welcome}</p><a className="hx-text-link" href={"mailto:" + (profile?.email || "hotel.valganna@libero.it")}><Mail size={15}/>{t.contact}</a>{profile?.phone && <p><a href={"tel:" + profile.phone}><Phone size={14}/> {profile.phone}</a></p>}</section></aside></div>
+      </> : <div className="hx-empty"><p>{t.notFound}</p><Link className="hx-button" to="/guest">{t.backToStays}</Link></div> :
+      <>
+        <div className="hx-guest-welcome"><div><p className="hx-eyebrow">{auth.welcome}{guestName ? " · " + guestName : ""}</p><h1>{t.reservations}</h1></div><div className="hx-guest-actions"><Link className="hx-button" to="/booking">{t.book}<ArrowUpRight size={16}/></Link><button className="hx-text-link" onClick={logout}>{t.logout}</button></div></div>
+        {confirmed && <div className="hx-confirmed-banner" role="status"><Check size={30}/><div><h2>{t.confirmed}</h2><p>{t.welcome}</p></div></div>}
+        <div className="hx-tabs" role="tablist"><button role="tab" aria-selected={filter === "upcoming"} onClick={() => setFilter("upcoming")}>{t.upcoming}</button><button role="tab" aria-selected={filter === "past"} onClick={() => setFilter("past")}>{t.past}</button><button aria-label={t.refresh} onClick={() => token && load(token)}><RefreshCw size={16}/></button></div>
+        {!displayed.length ? <div className="hx-empty"><BedDouble size={40}/><h2>{t.empty}</h2><p>{t.emptyNote}</p><Link to="/booking" className="hx-button">{t.book}<ArrowRight size={17}/></Link></div> : displayed.map(item => <article key={item.id} className="hx-reservation-card hx-reveal">
+          <RoomPhoto src={roomImage(item.room?.roomType)} name={item.room?.roomType}/>
+          <div className="hx-reservation-card-content"><div className="hx-reservation-card-top"><p className="hx-eyebrow">{item.bookingNumber || "#" + item.id}</p><span className={"hx-status " + (item.bookingStatus === "CANCELLED" ? "hx-cancelled" : "")}>{stateLabel(item.bookingStatus)}</span></div><h2>{item.room?.roomType || t.yourRoom}</h2>
+            <div className="hx-reservation-facts"><div><small>{t.checkIn}</small>{date(item.checkInDate)}</div><div><small>{t.checkOut}</small>{date(item.checkOutDate)}</div><div><small>{t.guests}</small>{item.numberOfGuests} · {nights(item)} {t.nights}</div></div>
+            <div className="hx-reservation-card-bottom"><div><small className="hx-fine">{t.stayTotal}</small><strong>{money(item.totalPrice)}</strong></div><Link className="hx-button" to={"/guest/reservations/" + item.id}>{t.viewReservation}<ArrowRight size={17}/></Link><button className="hx-text-link" onClick={() => print(item)} aria-label={t.print}><Printer size={17}/></button></div>
           </div>
-          </section>
-        ) : (
-          <div className="guest-reservations">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-              <div>
-                <div className="text-sm text-gray-500">{copy.welcome}</div>
-                <h2 className="text-2xl font-bold">{guestName}</h2>
-              </div>
-              <button
-                onClick={() => token && loadBookings(token)}
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {copy.refresh}
-              </button>
-            </div>
-
-            <a href="/" className="guest-new-stay">{copy.newBooking} ↗</a>
-            {bookingsError && <p role="alert" className="text-red-600 mb-4">{bookingsError}</p>}
-            <div className="flex items-center gap-2 mb-6">
-              <button
-                type="button"
-                onClick={() => setReservationFilter("upcoming")}
-                className={`px-3 py-2 text-sm rounded ${reservationFilter === "upcoming" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
-              >
-                {copy.upcoming}
-              </button>
-              <button
-                type="button"
-                onClick={() => setReservationFilter("past")}
-                className={`px-3 py-2 text-sm rounded ${reservationFilter === "past" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
-              >
-                {copy.past}
-              </button>
-            </div>
-
-            {bookingsLoading ? (
-              <div className="bg-white p-6 rounded-lg">{copy.loadingBookings}</div>
-            ) : bookingsError ? null : (reservationFilter === "upcoming" ? upcomingReservations : pastReservations).length === 0 ? (
-              <div className="bg-white p-6 rounded-lg">
-                {reservationFilter === "upcoming"
-                  ? copy.noUpcoming
-                  : copy.noPast}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {(reservationFilter === "upcoming" ? upcomingReservations : pastReservations).map((booking) => {
-                  const guestNotes = parseGuestNotes(booking.notes);
-                  return (
-                  <div key={booking.id} className="bg-white p-6 rounded-lg shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm text-gray-500">{copy.reservation}</div>
-                        <div className="text-lg font-semibold">{booking.bookingNumber || `#${booking.id}`}</div>
-                      </div>
-                      <div className="text-sm text-gray-600">{copy.bookedOn} {formatDate(booking.createdAt)}</div>
-                      <button
-                        onClick={() => handlePrint(booking)}
-                        className="px-3 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50"
-                      >
-                        {copy.receipt}
-                      </button>
-                    </div>
-
-                    <div className="mt-4 grid md:grid-cols-2 gap-4 text-sm">
-                      {guestNotes.checkIn && (
-                        <div>
-                          <div className="text-gray-500">{copy.checkInName}</div>
-                          <div className="font-medium">{guestNotes.checkIn}</div>
-                        </div>
-                      )}
-                      {guestNotes.additional && (
-                        <div>
-                          <div className="text-gray-500">{copy.additional}</div>
-                          <div className="font-medium">{guestNotes.additional}</div>
-                        </div>
-                      )}
-                      <div>
-                        <div className="text-gray-500">{copy.guest}</div>
-                        <div className="font-medium">
-                          {(booking.guest?.firstName || booking.guest?.lastName)
-                            ? `${booking.guest?.firstName || ""} ${booking.guest?.lastName || ""}`.trim()
-                            : guestName}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">{copy.dates}</div>
-                        <div className="font-medium">{formatDate(booking.checkInDate)} — {formatDate(booking.checkOutDate)}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">{copy.room}</div>
-                        <div className="font-medium">{booking.room?.roomType || copy.room}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">{copy.guests}</div>
-                        <div className="font-medium">{booking.numberOfGuests}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">{copy.extras}</div>
-                        <div className="font-medium">
-                          {booking.breakfastCount > 0 ? `${copy.breakfast} ×${booking.breakfastCount}` : copy.noBreakfast}
-                          {booking.parkingIncluded ? ` + ${copy.parking}` : ""}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">{copy.total}</div>
-                        <div className="font-medium">€{booking.totalPrice.toFixed(2)}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">{copy.status}</div>
-                        <div className="font-medium">{{ CONFIRMED: copy.confirmed, CANCELLED: copy.cancelled, CHECKED_IN: copy.checkedIn, CHECKED_OUT: copy.checkedOut }[booking.bookingStatus] || booking.bookingStatus}</div>
-                      </div>
-                    </div>
-
-                    {booking.property && (
-                      <div className="mt-4 text-xs text-gray-500">
-                        {booking.property.name} · {booking.property.city || ""} {booking.property.country || ""}
-                      </div>
-                    )}
-                  </div>
-                );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-    </div>
-  );
+        </article>)}
+      </>}
+    </main>
+  </HotelFrame>;
 };
-
 export default GuestPortal;

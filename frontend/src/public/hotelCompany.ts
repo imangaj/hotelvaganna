@@ -7,7 +7,6 @@ export const hotelCompany = {
   taxCode: "03192130965",
   registeredOffice: "Via Giovanni Battista Varè 32, 20158 Milano (MI), Italia",
   rea: "MI - 1656828",
-  shareCapital: "€ 11.000,00",
   cin: "",
   cir: "",
   pec: "",
