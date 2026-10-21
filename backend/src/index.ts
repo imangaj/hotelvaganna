@@ -1,3 +1,4 @@
+import { startBookingEmailWorker } from "./utils/bookingEmailQueue";
 import express, { Express, Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
@@ -115,6 +116,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 if (process.env.VITEST) {
   // For testing, we export the app
 } else {
+  startBookingEmailWorker();
   app.listen(port, host, () => {
     const hostLabel = host === "0.0.0.0" ? "localhost" : host;
     console.log(`🚀 Server is running at http://${hostLabel}:${port}`);

@@ -141,6 +141,8 @@ model GuestPasswordResetToken {
 model Booking {
   id              Int       @id @default(autoincrement())
   bookingNumber   String    @unique
+  checkoutKey     String?   @unique
+  emailDeliveries BookingEmailDelivery[]
   propertyId      Int
   roomId          Int
   guestId         Int
@@ -345,4 +347,24 @@ model MaintenanceRequest {
   updatedAt       DateTime @updatedAt
   
   @@map("maintenance_requests")
+}
+
+model BookingEmailDelivery {
+  id                Int       @id @default(autoincrement())
+  bookingId         Int
+  recipientType     String
+  recipientEmail    String
+  payloadJson       String
+  attempts          Int       @default(0)
+  nextAttempt       DateTime  @default(now())
+  leaseUntil        DateTime?
+  sentAt            DateTime?
+  providerMessageId String?
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, recipientType])
+  @@index([sentAt, nextAttempt])
+  @@map("booking_email_deliveries")
 }

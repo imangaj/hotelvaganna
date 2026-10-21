@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { bookingAPI, propertyAPI, roomAPI, guestAPI, hotelProfileAPI } from "../api/endpoints";
 import { useLanguage } from "../contexts/LanguageContext";
-import { buildReservationReceiptHtml } from "../utils/receipt";
+import { printReservationReceipt } from "../utils/receipt";
 
 interface Booking {
   id: number;
@@ -182,9 +182,7 @@ const BookingsPage: React.FC = () => {
     });
   };
 
-  const handlePrintReceipt = (booking: Booking) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  const handlePrintReceipt = async (booking: Booking) => {
 
     const rulesTitle = hotelProfile?.contentJson?.i18n?.rules?.title?.[language]
       || hotelProfile?.contentJson?.rules?.title
@@ -193,9 +191,9 @@ const BookingsPage: React.FC = () => {
       || hotelProfile?.contentJson?.rules?.content
       || hotelProfile?.policies
       || "";
-    const cityTax = Number(hotelProfile?.contentJson?.receipt?.cityTaxPerPersonPerNight ?? 7.4);
+    const cityTax = Number(hotelProfile?.contentJson?.receipt?.cityTaxPerPersonPerNight ?? 0);
 
-    const html = buildReservationReceiptHtml({
+    await printReservationReceipt({
       booking,
       profile: hotelProfile,
       language,
@@ -204,10 +202,7 @@ const BookingsPage: React.FC = () => {
       rulesContent,
     });
 
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+
   };
 
   const toDateKey = (dateStr: string) =>

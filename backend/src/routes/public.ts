@@ -42,6 +42,21 @@ const isMatrimonialeStandard = (name: string) => {
     return n.includes("matrimoniale") && !n.includes("piccola") && !n.includes("picola");
 };
 
+// Public room catalogue; no guest, inventory, or staff data is exposed.
+router.get("/room-types", async (req: Request, res: Response) => {
+  const propertyId = Number(req.query.propertyId || 1);
+  if (!Number.isInteger(propertyId) || propertyId < 1) return res.status(400).json({ message: "Invalid property" });
+  try {
+    const rooms = await prisma.room.findMany({ where: { propertyId }, include: { roomType: true } });
+    const unique = new Map<number, any>();
+    for (const room of rooms) unique.set(room.roomType.id, {
+      id: room.roomType.id, name: room.roomType.name,
+      description: room.roomType.description, maxGuests: room.roomType.maxGuests,
+    });
+    return res.json(Array.from(unique.values()));
+  } catch { return res.status(500).json({ message: "Unable to load room catalogue" }); }
+});
+
 // Public Search Endpoint
 router.get("/search", async (req: Request, res: Response) => {
   try {
@@ -56,6 +71,13 @@ router.get("/search", async (req: Request, res: Response) => {
     const propId = parseInt(propertyId as string);
     const guestCount = guests ? parseInt(guests as string) : 1;
     const requiredRooms = roomCountParam ? parseInt(roomCountParam as string) : 1;
+
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start ||
+        !Number.isInteger(propId) || propId < 1 || !Number.isInteger(guestCount) || guestCount < 1 ||
+        !Number.isInteger(requiredRooms) || requiredRooms < 1 || requiredRooms > 5 ||
+        guestCount < requiredRooms || guestCount > 12 || differenceInCalendarDays(end, start) > 60) {
+      return res.status(400).json({ message: "Invalid search dates or occupancy" });
+    }
 
     // 1. Get Room Types associated with Property
     // Note: Schema links Rooms to Property, RoomTypes are global but rooms link them.

@@ -5,6 +5,9 @@ const path = require("node:path");
 const requireBackend = createRequire(path.resolve(__dirname, "../backend/package.json"));
 // Use only against the isolated CI database created in the workflow.
 process.env.VITEST = "1";
+process.env.MAIL_PROVIDER = "resend";
+process.env.RESEND_API_KEY = "";
+process.env.MAIL_FROM = "";
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "ci-only-staff-secret";
 process.env.GUEST_JWT_SECRET = "ci-only-guest-secret";
@@ -65,6 +68,43 @@ test("Real staff and guest login restore separate identities and complete reserv
     assert.equal((await request("/users", guestToken)).status, 401);
     assert.equal((await request("/guest-auth/bookings", staffToken)).status, 401);
     assert.equal((await request("/guest-auth/login", null, { email, password: "wrong-password" })).status, 401);
+
+    const catalogue = await request("/public/room-types?propertyId=" + property.id);
+    assert.equal(catalogue.status, 200);
+    assert.equal(catalogue.data[0].name, roomType.name);
+    assert.equal(catalogue.data[0].maxGuests, 2);
+    assert.equal(catalogue.data[0].roomNumber, undefined);
+    assert.equal((await request("/public/search?propertyId=1&checkIn=bad&checkOut=bad")).status, 400);
+    const input = {
+      propertyId: property.id, roomId: room.id, guestId: guest.id, checkInDate: "2031-01-01",
+      checkOutDate: "2031-01-03", numberOfGuests: 1, totalPrice: 200, paidAmount: 200,
+      source: "website", checkoutKey: "cs_test_repeatable:" + room.id,
+    };
+    const created = await request("/bookings", guestToken, input);
+    assert.equal(created.status, 201);
+    const repeated = await request("/bookings", guestToken, input);
+    assert.equal(repeated.status, 200);
+    assert.equal(repeated.data.id, created.data.id);
+    const jobs = await prisma.bookingEmailDelivery.findMany({ where: { bookingId: created.data.id } });
+    assert.equal(jobs.length, 2);
+    assert.deepEqual(jobs.map(job => job.recipientType).sort(), ["GUEST", "HOTEL"]);
+    assert.equal(jobs.find(job => job.recipientType === "HOTEL").recipientEmail, "hotel.valganna@libero.it");
+    assert.equal(jobs.find(job => job.recipientType === "GUEST").recipientEmail, email);
+    assert.ok(jobs.every(job => job.sentAt === null));
+    // Confirm queued work survives a new database-client connection and was not recreated on refresh.
+    const restartedClient = new PrismaClient();
+    assert.equal(await restartedClient.bookingEmailDelivery.count({ where: { bookingId: created.data.id } }), 2);
+    await restartedClient.$disconnect();
+    // Allow the intentionally unconfigured worker to record safe failure codes, not secrets.
+    for (let i = 0; i < 100; i++) {
+      const pending = await prisma.bookingEmailDelivery.findMany({ where: { bookingId: created.data.id } });
+      if (pending.every(job => job.attempts > 0 && job.leaseUntil === null)) {
+        assert.ok(pending.every(job => job.lastError === "RESEND_API_KEY_AND_MAIL_FROM_REQUIRED"));
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+
   } finally {
     await new Promise(resolve => server.close(resolve));
     if (property) {
