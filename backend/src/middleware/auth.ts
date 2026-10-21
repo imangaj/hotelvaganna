@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "../utils/authConfig";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -19,8 +20,11 @@ export const authMiddleware = (
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "secret"
+      getJwtSecret()
     );
+    if (typeof decoded === "string" || !Number.isInteger(decoded.userId)) {
+      return res.status(401).json({ message: "Invalid staff token" });
+    }
     req.user = decoded;
     next();
   } catch (error) {

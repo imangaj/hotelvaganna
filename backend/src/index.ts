@@ -46,6 +46,12 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Account and reservation data must not be reused from browser/proxy caches.
+app.use("/api", (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 // Health check endpoint
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

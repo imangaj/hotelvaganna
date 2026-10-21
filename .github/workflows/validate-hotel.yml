@@ -1,0 +1,37 @@
+name: Validate hotel website
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build-and-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Session and email regression checks
+        run: node --test scripts/auth-booking-regression.test.cjs
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Generate database client
+        working-directory: backend
+        run: npx prisma generate
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+      - name: Prepare isolated CI database
+        working-directory: backend
+        run: npx prisma db push --skip-generate
+      - name: Authentication and reservation integration checks
+        run: node --test scripts/auth-integration.test.cjs
