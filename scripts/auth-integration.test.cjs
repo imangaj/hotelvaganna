@@ -96,14 +96,17 @@ test("Real staff and guest login restore separate identities and complete reserv
     assert.equal(await restartedClient.bookingEmailDelivery.count({ where: { bookingId: created.data.id } }), 2);
     await restartedClient.$disconnect();
     // Allow the intentionally unconfigured worker to record safe failure codes, not secrets.
+    let failuresRecorded = false;
     for (let i = 0; i < 100; i++) {
       const pending = await prisma.bookingEmailDelivery.findMany({ where: { bookingId: created.data.id } });
       if (pending.every(job => job.attempts > 0 && job.leaseUntil === null)) {
         assert.ok(pending.every(job => job.lastError === "RESEND_API_KEY_AND_MAIL_FROM_REQUIRED"));
+        failuresRecorded = true;
         break;
       }
       await new Promise(resolve => setTimeout(resolve, 20));
     }
+    assert.ok(failuresRecorded, "Worker must persist diagnostic failures for both recipients");
 
   } finally {
     await new Promise(resolve => server.close(resolve));

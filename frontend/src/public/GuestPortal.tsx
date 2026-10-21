@@ -34,8 +34,8 @@ const GuestPortal: React.FC = () => {
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const bookingId = Number(location.pathname.match(/\/reservations\/(\d+)/)?.[1]);
   const booking = bookings.find(item => item.id === bookingId);
-  const confirmed = params.has("confirmed");
   const confirmedIds = (params.get("confirmed") || "").split(",").map(Number);
+  const confirmed = params.has("confirmed") && (booking ? booking.bookingStatus === "CONFIRMED" : bookings.some(item => confirmedIds.includes(item.id) && item.bookingStatus === "CONFIRMED"));
   const returnTo = safeReturnPath(params.get("returnTo"));
   const locale = language === "it" ? "it-IT" : language === "zh" ? "zh-CN" : "en-GB";
   const money = (amount: number) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(amount);
@@ -61,6 +61,9 @@ const GuestPortal: React.FC = () => {
       if (localStorage.getItem("guestToken") !== savedToken) return;
       setForm(previous => ({ ...previous, ...guest.data, password: "" }));
       setBookings(history.data || []);
+      const reference = params.get("reference");
+      const target = reference && (history.data || []).find((item: Booking) => item.bookingNumber === reference);
+      if (target) navigate("/guest/reservations/" + target.id, { replace: true });
     } catch (failure: any) {
       if (localStorage.getItem("guestToken") !== savedToken) return;
       if (failure.response?.status === 401) {

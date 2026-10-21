@@ -154,7 +154,7 @@ router.post("/", async (req: Request, res: Response) => {
       guestEmail: emailGuest.email, guestName: [emailGuest.firstName,emailGuest.lastName].filter(Boolean).join(" "),
       guestPhone: emailGuest.phone, numberOfGuests: Number(numberOfGuests), breakfastCount: Number(breakfastCount),
       parkingIncluded: Boolean(parkingIncluded), roomNumber: emailRoom.roomNumber, roomType: emailRoom.roomType.name,
-      hotelEmail, notes, source, reservationUrl: (process.env.FRONTEND_URL || "https://hotelvalganna.it").replace(/[/]$/, "") + "/guest",
+      hotelEmail, notes, source, reservationUrl: (process.env.FRONTEND_URL || "https://hotelvalganna.it").replace(/[/]$/, "") + "/guest?reference=" + encodeURIComponent(bookingNumber),
     });
     const deliveryJobs = [{ recipientType: "HOTEL", recipientEmail: hotelEmail, payloadJson }];
     if (emailGuest.email) deliveryJobs.push({ recipientType: "GUEST", recipientEmail: emailGuest.email, payloadJson });

@@ -14,14 +14,14 @@ export const processBookingEmailQueue = async (): Promise<void> => {
     for (const job of jobs) {
       const claimTime = new Date();
       const claimed = await prisma.bookingEmailDelivery.updateMany({
-        where: { id: job.id, sentAt: null, OR: [{ leaseUntil: null }, { leaseUntil: { lt: claimTime } }] },
+        where: { id: job.id, sentAt: null, nextAttempt: { lte: claimTime }, OR: [{ leaseUntil: null }, { leaseUntil: { lt: claimTime } }] },
         data: { leaseUntil: new Date(Date.now() + 5 * 60000), attempts: { increment: 1 } },
       });
       if (!claimed.count) continue;
       try {
         const raw = JSON.parse(job.payloadJson);
         const payload: BookingEmailPayload = { ...raw, checkInDate: new Date(raw.checkInDate), checkOutDate: new Date(raw.checkOutDate) };
-        const providerMessageId = await sendBookingEmail(payload, job.recipientType === "HOTEL" ? "HOTEL" : "GUEST", "booking-delivery-" + job.id);
+        const providerMessageId = await sendBookingEmail(payload, job.recipientType === "HOTEL" ? "HOTEL" : "GUEST", "booking-delivery-" + job.id + "-" + payload.bookingNumber);
         await prisma.bookingEmailDelivery.update({ where: { id: job.id }, data: { sentAt: new Date(), leaseUntil: null, lastError: null, providerMessageId } });
       } catch (error: any) {
         const code = typeof error.code === "string" && /^[A-Z0-9_]+$/.test(error.code) ? error.code : "DELIVERY_FAILED";
